@@ -1,0 +1,15 @@
+[package]
+name = "vxdb-python"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Python bindings for vxdb"
+
+[lib]
+name = "_vxdb"
+crate-type = ["cdylib"]
+
+[dependencies]
+vxdb-core = { path = "../vxdb-core" }
+pyo3 = { version = "0.22", features = ["extension-module"] }
+serde_json = "1"
