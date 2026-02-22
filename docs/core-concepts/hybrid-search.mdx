@@ -1,0 +1,113 @@
+---
+title: Hybrid Search
+description: "Combine vector similarity with BM25 keyword matching for the best of both worlds."
+---
+
+## Why hybrid search?
+
+Vector search excels at understanding meaning ("lightweight laptop for students") but can miss specific terms. Keyword search (BM25) finds exact matches ("RTX 5090") but misses semantic similarity.
+
+Hybrid search gives you both in a single call.
+
+## How it works
+
+<Steps>
+  <Step title="Upsert with documents">
+    Raw text is tokenized into a built-in BM25 index alongside your vectors.
+  </Step>
+  <Step title="Query runs both systems">
+    At query time, vector search and BM25 run in parallel.
+  </Step>
+  <Step title="Reciprocal Rank Fusion merges results">
+    RRF combines both ranked lists into a single result set — no score normalization needed.
+  </Step>
+</Steps>
+
+## Usage
+
+```python
+results = collection.hybrid_query(
+    vector=embed("lightweight laptop for students"),
+    query="MacBook Air M4",
+    top_k=5,
+    alpha=0.5,
+)
+```
+
+<Note>
+You must pass `documents=` during `upsert()` to enable hybrid and keyword search.
+</Note>
+
+## The alpha parameter
+
+`alpha` controls the blend between vector and keyword results:
+
+| Alpha | Behavior |
+|---|---|
+| `1.0` | Pure vector search |
+| `0.75` | Mostly semantic, some keyword boost |
+| `0.5` | Balanced (default) |
+| `0.25` | Mostly keyword, some semantic boost |
+| `0.0` | Pure keyword search |
+
+## When to use what
+
+| Search mode | Best for | Example query |
+|---|---|---|
+| **Vector only** (`query`) | Broad semantic questions | "lightweight laptop for students" |
+| **Keyword only** (`keyword_search`) | Exact terms, codes, names | "RTX 5090" |
+| **Hybrid** (`hybrid_query`) | Mixed intent — the best default | "MacBook for machine learning" |
+
+<Tip>
+Start with `hybrid_query(alpha=0.5)` as your default. If results return too many irrelevant keyword matches, increase `alpha`. If users miss exact term matches, decrease `alpha`.
+</Tip>
+
+## Side-by-side comparison
+
+```python
+from sentence_transformers import SentenceTransformer
+import vxdb
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+db = vxdb.Database()
+collection = db.create_collection("products", dimension=384)
+
+products = [
+    {"id": "MBP-M4", "text": "MacBook Pro M4 Max — 16-inch laptop with Apple silicon"},
+    {"id": "RTX-5090", "text": "NVIDIA GeForce RTX 5090 — flagship GPU with 32GB GDDR7"},
+    {"id": "MBA-M4", "text": "MacBook Air M4 — ultra-thin 13-inch laptop, fanless design"},
+]
+
+texts = [p["text"] for p in products]
+vectors = model.encode(texts).tolist()
+
+collection.upsert(
+    ids=[p["id"] for p in products],
+    vectors=vectors,
+    documents=texts,
+)
+
+query = "MacBook for machine learning"
+q_vec = model.encode([query]).tolist()[0]
+
+# Vector only
+vector_results = collection.query(vector=q_vec, top_k=3)
+
+# Keyword only
+keyword_results = collection.keyword_search(query=query, top_k=3)
+
+# Hybrid
+hybrid_results = collection.hybrid_query(
+    vector=q_vec, query=query, top_k=3, alpha=0.5
+)
+```
+
+## Keyword-only search
+
+For pure text search without vectors:
+
+```python
+results = collection.keyword_search(query="machine learning", top_k=5)
+```
+
+Uses BM25 scoring internally. No embedding model needed for the query — but documents must have been indexed via the `documents=` parameter during `upsert()`.

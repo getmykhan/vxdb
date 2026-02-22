@@ -1,0 +1,245 @@
+---
+title: REST API
+description: "Complete HTTP endpoint reference for the vxdb server."
+---
+
+## Base URL
+
+```
+http://localhost:8080
+```
+
+All endpoints accept and return JSON. Set `Content-Type: application/json` on all POST requests.
+
+## Collections
+
+### Create collection
+
+<ParamField body="name" type="string" required>
+  Collection name. Must be unique.
+</ParamField>
+
+<ParamField body="dimension" type="integer" required>
+  Number of dimensions per vector.
+</ParamField>
+
+<ParamField body="metric" type="string" default="cosine">
+  Distance metric: `cosine`, `euclidean`, or `dot`.
+</ParamField>
+
+<ParamField body="index" type="string" default="flat">
+  Index type: `flat` or `hnsw`.
+</ParamField>
+
+```bash
+curl -X POST localhost:8080/collections \
+  -H "Content-Type: application/json" \
+  -d '{"name": "docs", "dimension": 384, "metric": "cosine", "index": "flat"}'
+```
+
+**Response** (201):
+```json
+{"name": "docs", "dimension": 384}
+```
+
+### List collections
+
+```bash
+curl localhost:8080/collections
+```
+
+**Response** (200):
+```json
+{"collections": ["docs", "images"]}
+```
+
+### Delete collection
+
+```bash
+curl -X DELETE localhost:8080/collections/docs
+```
+
+**Response:** 204 No Content
+
+---
+
+## Vectors
+
+### Upsert
+
+<ParamField body="ids" type="string[]" required>
+  Unique identifiers for each vector.
+</ParamField>
+
+<ParamField body="vectors" type="float[][]" required>
+  Embedding vectors. Each must match the collection's dimension.
+</ParamField>
+
+<ParamField body="metadata" type="object[]">
+  Key-value metadata for each vector.
+</ParamField>
+
+<ParamField body="documents" type="string[]">
+  Raw text for hybrid/keyword search.
+</ParamField>
+
+```bash
+curl -X POST localhost:8080/collections/docs/upsert \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ids": ["a", "b"],
+    "vectors": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
+    "metadata": [{"topic": "ml"}, {"topic": "nlp"}],
+    "documents": ["machine learning intro", "natural language processing"]
+  }'
+```
+
+**Response** (200):
+```json
+{"upserted": 2}
+```
+
+### Delete vectors
+
+```bash
+curl -X POST localhost:8080/collections/docs/delete \
+  -H "Content-Type: application/json" \
+  -d '{"ids": ["a"]}'
+```
+
+**Response** (200):
+```json
+{"deleted": [true]}
+```
+
+### Count
+
+```bash
+curl localhost:8080/collections/docs/count
+```
+
+**Response** (200):
+```json
+{"count": 42}
+```
+
+---
+
+## Search
+
+### Vector query
+
+<ParamField body="vector" type="float[]" required>
+  Query vector. Must match the collection's dimension.
+</ParamField>
+
+<ParamField body="top_k" type="integer" default={10}>
+  Number of results to return.
+</ParamField>
+
+<ParamField body="filter" type="object">
+  Metadata filter. See [Metadata Filtering](/core-concepts/metadata-filtering).
+</ParamField>
+
+```bash
+curl -X POST localhost:8080/collections/docs/query \
+  -H "Content-Type: application/json" \
+  -d '{"vector": [0.1, 0.2, 0.3], "top_k": 5}'
+```
+
+**Response** (200):
+```json
+{
+  "results": [
+    {"id": "a", "score": 0.9832, "metadata": {"topic": "ml"}},
+    {"id": "b", "score": 0.8714, "metadata": {"topic": "nlp"}}
+  ]
+}
+```
+
+### With filter
+
+```bash
+curl -X POST localhost:8080/collections/docs/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "vector": [0.1, 0.2, 0.3],
+    "top_k": 5,
+    "filter": {"topic": {"$eq": "ml"}}
+  }'
+```
+
+### Hybrid query
+
+<ParamField body="vector" type="float[]" required>
+  Query vector.
+</ParamField>
+
+<ParamField body="query" type="string" required>
+  Keyword query for BM25 matching.
+</ParamField>
+
+<ParamField body="top_k" type="integer" default={10}>
+  Number of results.
+</ParamField>
+
+<ParamField body="alpha" type="float" default={0.5}>
+  Blend factor. `1.0` = pure vector, `0.0` = pure keyword.
+</ParamField>
+
+```bash
+curl -X POST localhost:8080/collections/docs/hybrid \
+  -H "Content-Type: application/json" \
+  -d '{
+    "vector": [0.1, 0.2, 0.3],
+    "query": "machine learning",
+    "top_k": 5,
+    "alpha": 0.5
+  }'
+```
+
+### Keyword search
+
+<ParamField body="query" type="string" required>
+  Keyword query for BM25 search.
+</ParamField>
+
+<ParamField body="top_k" type="integer" default={10}>
+  Number of results.
+</ParamField>
+
+```bash
+curl -X POST localhost:8080/collections/docs/keyword \
+  -H "Content-Type: application/json" \
+  -d '{"query": "machine learning", "top_k": 5}'
+```
+
+---
+
+## Endpoint summary
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/collections` | Create collection |
+| `GET` | `/collections` | List collections |
+| `DELETE` | `/collections/{name}` | Delete collection |
+| `POST` | `/collections/{name}/upsert` | Upsert vectors |
+| `POST` | `/collections/{name}/query` | Vector search |
+| `POST` | `/collections/{name}/hybrid` | Hybrid search |
+| `POST` | `/collections/{name}/keyword` | Keyword search |
+| `POST` | `/collections/{name}/delete` | Delete vectors |
+| `GET` | `/collections/{name}/count` | Count vectors |
+
+## Error responses
+
+All errors return a JSON object with an `error` field:
+
+```json
+{"error": "collection 'docs' not found"}
+```
+
+| Status | Meaning |
+|---|---|
+| 400 | Bad request (wrong dimension, invalid filter, etc.) |
+| 404 | Collection not found |
+| 409 | Conflict (collection already exists) |

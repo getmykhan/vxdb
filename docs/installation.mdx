@@ -1,0 +1,101 @@
+---
+title: Installation
+description: "One pip install. Works on macOS, Linux, and Windows."
+---
+
+## Install vxdb
+
+```bash
+pip install vxdb
+```
+
+That's the whole thing. Works on **macOS, Linux, and Windows**. Requires Python 3.9+.
+
+The package is a single native wheel **under 5 MB** — it includes the compiled Rust core, so there's nothing else to install.
+
+## Server extras
+
+If you need the HTTP client for talking to a remote vxdb server:
+
+```bash
+pip install 'vxdb[server]'
+```
+
+This adds `httpx` as a dependency for the `Client` class.
+
+## Embedding providers
+
+vxdb stores pre-computed vectors — you bring any embedding model. Install the provider you want:
+
+<Tabs>
+  <Tab title="OpenAI">
+    ```bash
+    pip install openai
+    ```
+    Requires an API key. See the [OpenAI integration guide](/integrations/openai).
+  </Tab>
+  <Tab title="Sentence Transformers">
+    ```bash
+    pip install sentence-transformers
+    ```
+    Free, runs locally. See the [Sentence Transformers guide](/integrations/sentence-transformers).
+  </Tab>
+  <Tab title="LangChain">
+    ```bash
+    pip install langchain-openai langchain-huggingface
+    ```
+    Install only the provider you need. See the [LangChain guide](/integrations/langchain).
+  </Tab>
+  <Tab title="Cohere">
+    ```bash
+    pip install cohere
+    ```
+    Requires an API key. See the [Cohere guide](/integrations/cohere).
+  </Tab>
+  <Tab title="Ollama">
+    ```bash
+    pip install ollama
+    ```
+    Free, runs locally. Requires Ollama running. See the [Ollama guide](/integrations/ollama).
+  </Tab>
+</Tabs>
+
+## Verify installation
+
+```python
+import vxdb
+
+db = vxdb.Database()
+c = db.create_collection("test", dimension=3)
+c.upsert(ids=["a"], vectors=[[1.0, 0.0, 0.0]])
+print(c.query(vector=[1.0, 0.0, 0.0], top_k=1))
+# [{'id': 'a', 'score': 1.0, 'metadata': {}}]
+```
+
+## Development install
+
+To build from source:
+
+```bash
+git clone https://github.com/getmykhan/vxdb.git && cd vxdb
+
+# Rust
+cargo build --all
+cargo test --all
+
+# Python
+uv venv .venv && source .venv/bin/activate
+uv pip install maturin pytest httpx
+maturin develop
+PYTHONPATH=python pytest tests/ -v
+```
+
+## System requirements
+
+| Requirement | Minimum |
+|---|---|
+| Python | 3.9+ |
+| OS | macOS, Linux, Windows |
+| Architecture | x86_64, ARM64 (Apple Silicon) |
+| Disk | ~5 MB for the package |
+| Memory | Depends on your data |

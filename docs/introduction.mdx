@@ -1,0 +1,97 @@
+---
+title: Introduction
+description: "The vector database that fits in your pocket. Rust-powered. Python-native. One pip install away."
+---
+
+## What is vxdb?
+
+vxdb is a lightweight, high-performance vector database built in **Rust** with first-class **Python** bindings. It runs embedded in your process via PyO3 (zero-copy, sub-microsecond call overhead) or as a standalone HTTP server.
+
+```python
+import vxdb
+
+db = vxdb.Database()
+collection = db.create_collection("docs", dimension=384)
+
+collection.upsert(
+    ids=["a", "b"],
+    vectors=[embed("how to train a model"), embed("best pasta recipe")],
+    documents=["how to train a model", "best pasta recipe"],
+)
+
+collection.query(vector=embed("machine learning"), top_k=5)
+```
+
+`embed()` is any function that turns text into vectors — OpenAI, Sentence Transformers, Cohere, LangChain, or your own.
+
+No Docker. No config files. No cloud account. No 500 MB of dependencies.
+
+## Why vxdb?
+
+<CardGroup cols={2}>
+  <Card title="Stupid fast" icon="bolt">
+    The entire hot path — distance computation, HNSW traversal, BM25 scoring, mmap I/O — is pure Rust with zero GIL contention. Your Python code calls directly into compiled native code via PyO3.
+  </Card>
+  <Card title="Stupid light" icon="feather">
+    A single native wheel under 5 MB. Starts in under 10 ms. Compare that to ChromaDB (~200 MB), Milvus (needs Docker + etcd + MinIO), or Pinecone (needs a cloud account).
+  </Card>
+  <Card title="Runs anywhere" icon="globe">
+    Laptop. CI pipeline. Raspberry Pi. AWS Lambda. Docker container. Air-gapped server. Anywhere Python runs, vxdb runs.
+  </Card>
+  <Card title="Hybrid search built-in" icon="magnifying-glass">
+    Vector similarity + BM25 keyword matching fused via Reciprocal Rank Fusion. One API call. Tunable alpha parameter. No separate search engine needed.
+  </Card>
+</CardGroup>
+
+## Architecture
+
+```
+                ┌─────────────────────────────────────────────────┐
+                │               Your Python Code                  │
+                └─────────────┬───────────────────┬───────────────┘
+                              │                   │
+                ┌─────────────▼──────┐  ┌────────▼────────────┐
+                │  Embedded (PyO3)   │  │  Server (REST API)  │
+                │  Zero-copy, in-    │  │  Axum, async,       │
+                │  process, <1μs     │  │  multi-client       │
+                │  call overhead     │  │                     │
+                └─────────────┬──────┘  └────────┬────────────┘
+                              │                   │
+                ┌─────────────▼───────────────────▼───────────────┐
+                │              Rust Core Engine                    │
+                │                                                  │
+                │  ┌──────────┐ ┌──────────┐ ┌─────────────────┐  │
+                │  │   HNSW   │ │   Flat   │ │  BM25 Keyword   │  │
+                │  │  Index   │ │  Index   │ │     Index       │  │
+                │  └──────────┘ └──────────┘ └─────────────────┘  │
+                │  ┌──────────────────┐ ┌──────────────────────┐  │
+                │  │ Distance Metrics  │ │  Metadata Filtering  │  │
+                │  │ cosine/L2/dot     │ │  10 operators, SQL   │  │
+                │  └──────────────────┘ └──────────────────────┘  │
+                │  ┌──────────────────────────────────────────┐   │
+                │  │   Hybrid Search (Reciprocal Rank Fusion)  │   │
+                │  └──────────────────────────────────────────┘   │
+                └─────────────────────┬───────────────────────────┘
+                                      │
+                ┌─────────────────────▼───────────────────────────┐
+                │                  Storage                        │
+                │  mmap vectors │ SQLite metadata │ Write-Ahead Log│
+                └─────────────────────────────────────────────────┘
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get up and running in 3 lines of code.
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Install vxdb and optional extras.
+  </Card>
+  <Card title="Integrations" icon="plug" href="/integrations/openai">
+    Connect your embedding provider.
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/database">
+    Full Python and REST API docs.
+  </Card>
+</CardGroup>

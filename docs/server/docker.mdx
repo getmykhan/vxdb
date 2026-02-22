@@ -1,0 +1,92 @@
+---
+title: Docker Deployment
+description: "Deploy vxdb server in a ~10 MB Docker image."
+---
+
+## Quick start
+
+```bash
+docker build -t vxdb .
+docker run -p 8080:8080 vxdb
+```
+
+The server is available at `http://localhost:8080`.
+
+## Dockerfile
+
+vxdb ships with a multi-stage Dockerfile that produces a **~10 MB image**:
+
+```dockerfile
+FROM rust:1.83-bookworm AS builder
+
+WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ crates/
+
+RUN cargo build --release -p vxdb-server
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/target/release/vxdb-server /usr/local/bin/vxdb-server
+
+EXPOSE 8080
+
+ENTRYPOINT ["vxdb-server"]
+CMD ["--host", "0.0.0.0", "--port", "8080"]
+```
+
+## Configuration
+
+Override the default host and port:
+
+```bash
+docker run -p 9090:9090 vxdb --host 0.0.0.0 --port 9090
+```
+
+## Persistent storage
+
+Mount a volume to persist data across container restarts:
+
+```bash
+docker run -p 8080:8080 -v vxdb-data:/data vxdb --host 0.0.0.0 --port 8080
+```
+
+## Docker Compose
+
+```yaml
+services:
+  vxdb:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - vxdb-data:/data
+
+volumes:
+  vxdb-data:
+```
+
+```bash
+docker compose up -d
+```
+
+## Image size comparison
+
+| Database | Docker image |
+|---|---|
+| **vxdb** | **~10 MB** |
+| Qdrant | ~100 MB |
+| Weaviate | ~300 MB |
+| ChromaDB | ~500 MB |
+| Milvus | ~1 GB+ |
+
+## Health check
+
+```bash
+curl localhost:8080/collections
+```
+
+Returns `200` with `{"collections": [...]}` when healthy.

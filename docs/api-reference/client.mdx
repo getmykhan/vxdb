@@ -1,0 +1,167 @@
+---
+title: Client
+description: "Python API reference for the HTTP Client and RemoteCollection classes."
+---
+
+## `vxdb.Client`
+
+HTTP client for connecting to a remote vxdb server. Mirrors the embedded `Database` API.
+
+```python
+from vxdb import Client
+
+client = Client("http://localhost:8080")
+```
+
+<Note>
+Requires `httpx`. Install with `pip install 'vxdb[server]'`.
+</Note>
+
+---
+
+## Constructor
+
+```python
+Client(base_url: str = "http://localhost:8080")
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `base_url` | `str` | `"http://localhost:8080"` | Server URL |
+
+---
+
+## Methods
+
+### `create_collection`
+
+```python
+collection = client.create_collection(
+    name="docs",
+    dimension=384,
+    metric="cosine",
+    index="flat",
+)
+```
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `name` | `str` | Yes | — | Collection name |
+| `dimension` | `int` | Yes | — | Vector dimension |
+| `metric` | `str` | No | `"cosine"` | Distance metric |
+| `index` | `str` | No | `"flat"` | Index type |
+
+**Returns:** `RemoteCollection`
+
+### `get_collection`
+
+```python
+collection = client.get_collection("docs")
+```
+
+**Returns:** `RemoteCollection`
+
+### `list_collections`
+
+```python
+names = client.list_collections()
+# ["docs", "images"]
+```
+
+**Returns:** `list[str]`
+
+### `delete_collection`
+
+```python
+client.delete_collection("docs")
+```
+
+### `close`
+
+Close the HTTP connection.
+
+```python
+client.close()
+```
+
+### Context manager
+
+```python
+with Client("http://localhost:8080") as client:
+    coll = client.get_collection("docs")
+    results = coll.query(vector=[0.1, ...], top_k=5)
+```
+
+---
+
+## `RemoteCollection`
+
+Proxy for a collection on a remote vxdb server. Has the same interface as the embedded `Collection`.
+
+### `upsert`
+
+```python
+collection.upsert(
+    ids=["a", "b"],
+    vectors=[[0.1, ...], [0.3, ...]],
+    metadata=[{"type": "article"}, {"type": "blog"}],
+    documents=["intro to ML", "favorite recipes"],
+)
+```
+
+### `query`
+
+```python
+results = collection.query(
+    vector=[0.1, ...],
+    top_k=5,
+    filter={"type": {"$eq": "article"}},
+)
+```
+
+### `hybrid_query`
+
+```python
+results = collection.hybrid_query(
+    vector=[0.1, ...],
+    query="machine learning",
+    top_k=5,
+    alpha=0.5,
+)
+```
+
+### `keyword_search`
+
+```python
+results = collection.keyword_search(query="machine learning", top_k=5)
+```
+
+### `delete`
+
+```python
+deleted = collection.delete(ids=["a"])
+# [True]
+```
+
+### `count`
+
+```python
+n = collection.count()
+# 42
+```
+
+---
+
+## Error handling
+
+```python
+from vxdb.client import VexClientError
+
+try:
+    collection.query(vector=[0.1], top_k=5)
+except VexClientError as e:
+    print(f"Server error: {e}")
+    # "400: dimension mismatch: expected 384, got 1"
+```
+
+`VexClientError` is raised for any 4xx or 5xx response from the server. The message includes the HTTP status code and the server's error message.

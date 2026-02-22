@@ -1,0 +1,153 @@
+---
+title: Collection
+description: "Python API reference for the Collection class."
+---
+
+## `vxdb.Collection`
+
+A collection of vectors with a fixed dimension. Supports upsert, query, hybrid search, keyword search, and delete operations.
+
+```python
+import vxdb
+
+db = vxdb.Database()
+collection = db.create_collection("docs", dimension=384)
+```
+
+---
+
+## Methods
+
+### `upsert`
+
+Insert or update vectors. If an ID already exists, it is replaced.
+
+```python
+collection.upsert(
+    ids=["a", "b", "c"],
+    vectors=[[0.1, 0.2, ...], [0.3, 0.4, ...], [0.5, 0.6, ...]],
+    metadata=[{"type": "article"}, {"type": "blog"}, {"type": "article"}],
+    documents=["intro to ML", "favorite recipes", "deep learning guide"],
+)
+```
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `ids` | `list[str]` | Yes | Unique identifiers |
+| `vectors` | `list[list[float]]` | Yes | Embedding vectors (must match collection dimension) |
+| `metadata` | `list[dict]` | No | Key-value metadata for filtering |
+| `documents` | `list[str]` | No | Raw text for hybrid/keyword search |
+
+<Note>
+Pass `documents=` to enable `hybrid_query()` and `keyword_search()`.
+</Note>
+
+---
+
+### `query`
+
+Vector similarity search. Returns the closest vectors to the query, ranked by score.
+
+```python
+results = collection.query(
+    vector=[0.1, 0.2, ...],
+    top_k=5,
+    filter={"type": {"$eq": "article"}},
+)
+```
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `vector` | `list[float]` | Yes | — | Query vector |
+| `top_k` | `int` | No | `10` | Number of results |
+| `filter` | `dict` | No | `None` | Metadata filter (see [operators](/core-concepts/metadata-filtering)) |
+
+**Returns:** `list[dict]` — each dict has `id`, `score`, and `metadata`.
+
+```python
+[
+    {"id": "a", "score": 0.9832, "metadata": {"type": "article"}},
+    {"id": "c", "score": 0.9614, "metadata": {"type": "article"}},
+]
+```
+
+---
+
+### `hybrid_query`
+
+Combined vector + keyword search using Reciprocal Rank Fusion.
+
+```python
+results = collection.hybrid_query(
+    vector=[0.1, 0.2, ...],
+    query="machine learning",
+    top_k=5,
+    alpha=0.5,
+)
+```
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `vector` | `list[float]` | Yes | — | Query vector |
+| `query` | `str` | Yes | — | Keyword query for BM25 |
+| `top_k` | `int` | No | `10` | Number of results |
+| `alpha` | `float` | No | `0.5` | Blend: `1.0` = vector only, `0.0` = keyword only |
+
+**Returns:** `list[dict]` — same format as `query()`.
+
+---
+
+### `keyword_search`
+
+Pure BM25 keyword search. No vector needed.
+
+```python
+results = collection.keyword_search(query="machine learning", top_k=5)
+```
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `query` | `str` | Yes | — | Search terms |
+| `top_k` | `int` | No | `10` | Number of results |
+
+**Returns:** `list[dict]`
+
+---
+
+### `delete`
+
+Delete vectors by ID.
+
+```python
+deleted = collection.delete(ids=["a", "b"])
+# [True, True]
+```
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `ids` | `list[str]` | Yes | IDs to delete |
+
+**Returns:** `list[bool]` — `True` for each ID that was found and deleted.
+
+---
+
+### `count`
+
+Return the number of vectors in the collection.
+
+```python
+n = collection.count()
+# 42
+```
+
+**Returns:** `int`

@@ -1,0 +1,95 @@
+---
+title: Database
+description: "Python API reference for the Database class."
+---
+
+## `vxdb.Database`
+
+The entry point for embedded mode. Holds and manages multiple collections.
+
+```python
+import vxdb
+
+db = vxdb.Database()
+```
+
+---
+
+## Methods
+
+### `create_collection`
+
+Create a new collection.
+
+```python
+collection = db.create_collection(
+    name="docs",
+    dimension=384,
+    metric="cosine",
+    index="flat",
+)
+```
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `name` | `str` | Yes | — | Unique collection name |
+| `dimension` | `int` | Yes | — | Number of floats per vector |
+| `metric` | `str` | No | `"cosine"` | Distance metric: `"cosine"`, `"euclidean"`, `"dot"` |
+| `index` | `str` | No | `"flat"` | Index type: `"flat"` (exact), `"hnsw"` (approximate) |
+
+**Returns:** `Collection`
+
+**Raises:** Error if a collection with that name already exists.
+
+---
+
+### `get_collection`
+
+Get an existing collection by name.
+
+```python
+collection = db.get_collection("docs")
+```
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `name` | `str` | Yes | Collection name |
+
+**Returns:** `Collection`
+
+**Raises:** Error if the collection does not exist.
+
+---
+
+### `list_collections`
+
+List all collection names.
+
+```python
+names = db.list_collections()
+# ["docs", "images"]
+```
+
+**Returns:** `list[str]`
+
+---
+
+### `delete_collection`
+
+Delete a collection and all its data.
+
+```python
+db.delete_collection("docs")
+```
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `name` | `str` | Yes | Collection name |
+
+**Raises:** Error if the collection does not exist.

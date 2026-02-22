@@ -1,0 +1,109 @@
+---
+title: Collections
+description: "Organize your vectors into collections with configurable dimensions, distance metrics, and index types."
+---
+
+## What is a collection?
+
+A **collection** is a named container of vectors. Each collection has a fixed **dimension** (the number of floats per vector) and a configured **distance metric** and **index type**. A single `Database` can hold many collections.
+
+```python
+import vxdb
+
+db = vxdb.Database()
+collection = db.create_collection(
+    name="documents",
+    dimension=384,
+    metric="cosine",
+    index="flat",
+)
+```
+
+## Parameters
+
+### Dimension
+
+The number of floats per vector. Must match your embedding model's output.
+
+| Embedding model | Dimension |
+|---|---|
+| `all-MiniLM-L6-v2` | 384 |
+| `all-mpnet-base-v2` | 768 |
+| OpenAI `text-embedding-3-small` | 1536 |
+| OpenAI `text-embedding-3-large` | 3072 |
+| Cohere `embed-v4.0` | 1024 |
+
+### Distance metric
+
+Controls how similarity is measured between vectors.
+
+| Metric | Description | Best for |
+|---|---|---|
+| `cosine` | Cosine similarity (default) | Normalized text embeddings |
+| `euclidean` | L2 distance | When magnitude matters |
+| `dot` | Dot product | Pre-normalized vectors, maximum inner product |
+
+```python
+db.create_collection("docs", dimension=384, metric="cosine")
+db.create_collection("images", dimension=512, metric="euclidean")
+db.create_collection("scores", dimension=768, metric="dot")
+```
+
+### Index type
+
+Controls how vectors are searched.
+
+| Index | Description | When to use |
+|---|---|---|
+| `flat` | Exact brute-force search (default) | Datasets under ~100k vectors. 100% recall. |
+| `hnsw` | Approximate nearest neighbor (HNSW graph) | Large datasets. Faster but slightly lower recall. |
+
+```python
+db.create_collection("small", dimension=384, index="flat")
+db.create_collection("large", dimension=384, index="hnsw")
+```
+
+## Managing collections
+
+```python
+db.list_collections()
+# ["documents", "images", "scores"]
+
+coll = db.get_collection("documents")
+
+db.delete_collection("scores")
+```
+
+## Upserting data
+
+Each vector entry has:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `str` | Yes | Unique identifier |
+| `vector` | `list[float]` | Yes | Embedding vector (must match collection dimension) |
+| `metadata` | `dict` | No | Key-value pairs for filtering |
+| `document` | `str` | No | Raw text for hybrid/keyword search |
+
+```python
+collection.upsert(
+    ids=["doc-1", "doc-2"],
+    vectors=[[0.1, 0.2, ...], [0.3, 0.4, ...]],
+    metadata=[{"topic": "ml"}, {"topic": "nlp"}],
+    documents=["intro to machine learning", "natural language processing"],
+)
+```
+
+<Tip>
+Upserting with an existing ID replaces that entry entirely — vector, metadata, and document.
+</Tip>
+
+## Counting and deleting
+
+```python
+collection.count()
+# 2
+
+collection.delete(ids=["doc-1"])
+# [True]
+```

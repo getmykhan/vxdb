@@ -1,0 +1,81 @@
+---
+title: Server Mode
+description: "Deploy vxdb as a standalone HTTP server for multi-client access."
+---
+
+## Overview
+
+vxdb runs in two modes:
+
+| Mode | Use case | Latency | Multi-client |
+|---|---|---|---|
+| **Embedded** (default) | Single process, maximum performance | Sub-microsecond call overhead | No |
+| **Server** | Shared service, multi-client | Network round-trip (~1ms local) | Yes |
+
+Both modes use the exact same Rust core engine. The server adds an HTTP layer via [Axum](https://github.com/tokio-rs/axum).
+
+## Start the server
+
+```bash
+vxdb-server --host 0.0.0.0 --port 8080
+```
+
+The server is ready when you see output indicating it's listening.
+
+## Connect from Python
+
+```python
+from vxdb import Client
+
+client = Client("http://localhost:8080")
+collection = client.create_collection("docs", dimension=384)
+
+collection.upsert(
+    ids=["a"],
+    vectors=[[0.1, 0.2, ...]],
+    documents=["hello world"],
+)
+
+results = collection.query(vector=[0.1, 0.2, ...], top_k=5)
+```
+
+<Note>
+The Python client requires `httpx`. Install with `pip install 'vxdb[server]'`.
+</Note>
+
+## Connect via cURL
+
+```bash
+curl -X POST localhost:8080/collections \
+  -H "Content-Type: application/json" \
+  -d '{"name": "docs", "dimension": 384}'
+
+curl -X POST localhost:8080/collections/docs/upsert \
+  -H "Content-Type: application/json" \
+  -d '{"ids": ["a"], "vectors": [[0.1, 0.2]], "documents": ["hello world"]}'
+
+curl -X POST localhost:8080/collections/docs/query \
+  -H "Content-Type: application/json" \
+  -d '{"vector": [0.1, 0.2], "top_k": 5}'
+```
+
+## When to use server mode
+
+- Multiple services need to read/write the same vector store
+- You want to separate the vector database from your application process
+- You're deploying in a microservices architecture
+- You need HTTP-based access from non-Python clients
+
+For single-process Python applications, the embedded mode is simpler and faster.
+
+<CardGroup cols={2}>
+  <Card title="Python Client" icon="python" href="/server/python-client">
+    Full Python client SDK reference.
+  </Card>
+  <Card title="REST API" icon="code" href="/server/rest-api">
+    Complete HTTP endpoint reference.
+  </Card>
+  <Card title="Docker" icon="docker" href="/server/docker">
+    Deploy with Docker in a ~10 MB image.
+  </Card>
+</CardGroup>

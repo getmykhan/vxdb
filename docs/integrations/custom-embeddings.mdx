@@ -1,0 +1,94 @@
+---
+title: Custom Embeddings
+description: "Bring any embedding model using vxdb's pluggable EmbeddingFunction interface."
+---
+
+## Overview
+
+vxdb stores **pre-computed vectors** — it doesn't care where they come from. You can pass raw `list[list[float]]` to `upsert()`, or use the `EmbeddingFunction` base class for a cleaner, reusable pattern.
+
+## The EmbeddingFunction interface
+
+```python
+from vxdb.embedding import EmbeddingFunction
+
+class MyEmbedder(EmbeddingFunction):
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        # Your embedding logic here
+        return [[0.1, 0.2, ...] for _ in texts]
+```
+
+Subclass `EmbeddingFunction` and implement a single method: `embed()`. It takes a list of strings and returns a list of vectors.
+
+## Examples
+
+### OpenAI
+
+```python
+from openai import OpenAI
+from vxdb.embedding import EmbeddingFunction
+
+class OpenAIEmbedding(EmbeddingFunction):
+    def __init__(self, model: str = "text-embedding-3-small"):
+        self.client = OpenAI()
+        self.model = model
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        response = self.client.embeddings.create(input=texts, model=self.model)
+        return [item.embedding for item in response.data]
+```
+
+### Sentence Transformers
+
+```python
+from sentence_transformers import SentenceTransformer
+from vxdb.embedding import EmbeddingFunction
+
+class SentenceTransformerEmbedding(EmbeddingFunction):
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
+        self.model = SentenceTransformer(model_name)
+        self.dimension = self.model.get_sentence_embedding_dimension()
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        return self.model.encode(texts).tolist()
+```
+
+### Any HTTP API
+
+```python
+import httpx
+from vxdb.embedding import EmbeddingFunction
+
+class CustomAPIEmbedding(EmbeddingFunction):
+    def __init__(self, url: str, api_key: str):
+        self.url = url
+        self.api_key = api_key
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        response = httpx.post(
+            self.url,
+            json={"texts": texts},
+            headers={"Authorization": f"Bearer {self.api_key}"},
+        )
+        return response.json()["embeddings"]
+```
+
+## Using with vxdb
+
+The `EmbeddingFunction` is a convenience pattern — you call `embed()` yourself and pass the resulting vectors to vxdb:
+
+```python
+embedder = OpenAIEmbedding()
+
+texts = ["hello world", "vector databases are fast"]
+vectors = embedder.embed(texts)
+
+collection.upsert(
+    ids=["a", "b"],
+    vectors=vectors,
+    documents=texts,
+)
+
+query_vec = embedder.embed(["search query"])[0]
+results = collection.query(vector=query_vec, top_k=5)
+```

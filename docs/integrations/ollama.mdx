@@ -1,0 +1,94 @@
+---
+title: Ollama
+description: "Run embeddings locally with Ollama — free, private, no API key needed."
+---
+
+## Setup
+
+<Steps>
+  <Step title="Install Ollama">
+    Download from [ollama.com](https://ollama.com) and start the service:
+    ```bash
+    ollama serve
+    ```
+  </Step>
+  <Step title="Pull an embedding model">
+    ```bash
+    ollama pull nomic-embed-text
+    ```
+  </Step>
+  <Step title="Install the Python client">
+    ```bash
+    pip install vxdb ollama
+    ```
+  </Step>
+</Steps>
+
+## Available models
+
+| Model | Dimensions | Size | Notes |
+|---|---|---|---|
+| `nomic-embed-text` | 768 | 274 MB | Good general-purpose model |
+| `mxbai-embed-large` | 1024 | 670 MB | Higher quality |
+| `all-minilm` | 384 | 45 MB | Small and fast |
+
+## Generate embeddings
+
+```python
+import ollama
+
+EMBEDDING_MODEL = "nomic-embed-text"
+
+def get_embeddings(texts: list[str]) -> list[list[float]]:
+    embeddings = []
+    for text in texts:
+        response = ollama.embed(model=EMBEDDING_MODEL, input=text)
+        embeddings.append(response["embeddings"][0])
+    return embeddings
+
+test_vec = get_embeddings(["hello world"])
+EMBEDDING_DIM = len(test_vec[0])
+print(f"Dimension: {EMBEDDING_DIM}")
+```
+
+## Index and search
+
+```python
+import vxdb
+
+documents = [
+    {"id": "ml", "text": "Machine learning enables systems to learn from data."},
+    {"id": "dl", "text": "Deep learning uses neural networks with many layers."},
+    {"id": "rag", "text": "RAG combines retrieval with generative models."},
+]
+
+texts = [d["text"] for d in documents]
+vectors = get_embeddings(texts)
+
+db = vxdb.Database()
+collection = db.create_collection("docs", dimension=EMBEDDING_DIM, metric="cosine")
+
+collection.upsert(
+    ids=[d["id"] for d in documents],
+    vectors=vectors,
+    documents=texts,
+)
+
+query = "how do neural networks work?"
+query_vec = get_embeddings([query])[0]
+results = collection.query(vector=query_vec, top_k=3)
+```
+
+## With LangChain
+
+You can also use Ollama through LangChain for a more unified interface:
+
+```python
+from langchain_ollama import OllamaEmbeddings
+
+embeddings = OllamaEmbeddings(model="nomic-embed-text")
+vectors = embeddings.embed_documents(["hello world"])
+query_vec = embeddings.embed_query("hello")
+```
+
+See the [LangChain integration guide](/integrations/langchain) for the full pattern.

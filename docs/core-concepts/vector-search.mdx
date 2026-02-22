@@ -1,0 +1,91 @@
+---
+title: Vector Search
+description: "Find similar documents using vector similarity — the core operation in any vector database."
+---
+
+## How it works
+
+Vector search finds the documents whose embeddings are closest to a query vector. You embed your query with the same model used to embed your documents, then call `query()`.
+
+```python
+results = collection.query(vector=[0.1, 0.2, ...], top_k=5)
+```
+
+vxdb returns the top-k most similar results, ranked by score:
+
+```python
+[
+    {"id": "doc-3", "score": 0.9832, "metadata": {"topic": "ml"}},
+    {"id": "doc-1", "score": 0.9614, "metadata": {"topic": "ml"}},
+    {"id": "doc-7", "score": 0.8901, "metadata": {"topic": "dl"}},
+]
+```
+
+## Distance metrics
+
+The `score` field depends on the collection's distance metric:
+
+| Metric | Score meaning | Range | Higher = |
+|---|---|---|---|
+| `cosine` | Cosine similarity | -1 to 1 | More similar |
+| `euclidean` | Negative L2 distance | -inf to 0 | More similar |
+| `dot` | Dot product | -inf to +inf | More similar |
+
+## Index types
+
+### Flat index (exact)
+
+Brute-force comparison against every vector. Guarantees 100% recall.
+
+```python
+collection = db.create_collection("precise", dimension=384, index="flat")
+```
+
+Best for datasets under ~100k vectors where you need exact results.
+
+### HNSW index (approximate)
+
+Hierarchical Navigable Small World graph. Much faster for large datasets, with slightly lower recall.
+
+```python
+collection = db.create_collection("large_scale", dimension=384, index="hnsw")
+```
+
+Best for datasets over 100k vectors where speed matters more than perfect recall.
+
+## Filtered search
+
+Combine vector similarity with metadata constraints:
+
+```python
+results = collection.query(
+    vector=[0.1, 0.2, ...],
+    top_k=5,
+    filter={"topic": {"$eq": "ml"}},
+)
+```
+
+See [Metadata Filtering](/core-concepts/metadata-filtering) for the full list of operators.
+
+## Example with real embeddings
+
+```python
+from sentence_transformers import SentenceTransformer
+import vxdb
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+db = vxdb.Database()
+collection = db.create_collection("docs", dimension=384)
+
+texts = ["intro to machine learning", "best pasta recipe", "deep learning guide"]
+vectors = model.encode(texts).tolist()
+
+collection.upsert(
+    ids=["a", "b", "c"],
+    vectors=vectors,
+    documents=texts,
+)
+
+query_vec = model.encode(["how do neural networks work?"]).tolist()[0]
+results = collection.query(vector=query_vec, top_k=2)
+```

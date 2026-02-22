@@ -1,0 +1,119 @@
+---
+title: Cohere Embeddings
+description: "Multilingual embeddings with Cohere — 100+ languages out of the box."
+---
+
+## Setup
+
+```bash
+pip install vxdb cohere
+```
+
+You'll need a Cohere API key from [dashboard.cohere.com/api-keys](https://dashboard.cohere.com/api-keys). The free tier includes 1,000 API calls/month.
+
+## Available models
+
+| Model | Dimensions | Languages | Notes |
+|---|---|---|---|
+| `embed-v4.0` | 1024 | 100+ | Latest, best quality |
+| `embed-english-v3.0` | 1024 | English | Slightly faster |
+| `embed-multilingual-v3.0` | 1024 | 100+ | Previous generation |
+
+## Create embedding helpers
+
+Cohere uses `input_type` to distinguish between documents and queries — this asymmetric encoding improves retrieval quality.
+
+```python
+import os
+import cohere
+
+co = cohere.Client(api_key=os.environ.get("COHERE_API_KEY"))
+
+EMBEDDING_MODEL = "embed-v4.0"
+EMBEDDING_DIM = 1024
+
+def embed_documents(texts: list[str]) -> list[list[float]]:
+    response = co.embed(
+        texts=texts,
+        model=EMBEDDING_MODEL,
+        input_type="search_document",
+        embedding_types=["float"],
+    )
+    return [list(e) for e in response.embeddings.float_]
+
+def embed_query(text: str) -> list[float]:
+    response = co.embed(
+        texts=[text],
+        model=EMBEDDING_MODEL,
+        input_type="search_query",
+        embedding_types=["float"],
+    )
+    return list(response.embeddings.float_[0])
+```
+
+<Tip>
+Always use `input_type="search_document"` when indexing and `input_type="search_query"` when searching. This asymmetric encoding is key to Cohere's retrieval quality.
+</Tip>
+
+## Index multilingual documents
+
+```python
+import vxdb
+
+documents = [
+    {"id": "paris", "text": "Paris is the capital of France, known for the Eiffel Tower and café culture.", "lang": "en"},
+    {"id": "tokyo", "text": "Tokyo is Japan's capital, blending ultramodern skyscrapers with historic temples.", "lang": "en"},
+    {"id": "berlin", "text": "Berlin ist die Hauptstadt Deutschlands, bekannt für Geschichte und Kunstszene.", "lang": "de"},
+    {"id": "madrid", "text": "Madrid es la capital de España, famosa por el Museo del Prado.", "lang": "es"},
+    {"id": "saopaulo", "text": "São Paulo é a maior cidade do Brasil, conhecida por sua diversidade cultural.", "lang": "pt"},
+]
+
+texts = [d["text"] for d in documents]
+vectors = embed_documents(texts)
+
+db = vxdb.Database()
+collection = db.create_collection("cities", dimension=EMBEDDING_DIM, metric="cosine")
+
+collection.upsert(
+    ids=[d["id"] for d in documents],
+    vectors=vectors,
+    metadata=[{"lang": d["lang"]} for d in documents],
+    documents=texts,
+)
+```
+
+## Cross-lingual search
+
+Query in one language, find results in another:
+
+```python
+queries = [
+    "famous museums in European capitals",
+    "biggest city in South America",
+    "Japanese culture and temples",
+]
+
+for query in queries:
+    q_vec = embed_query(query)
+    results = collection.query(vector=q_vec, top_k=3)
+    for r in results:
+        print(f"  {r['id']}  score={r['score']:.4f}  lang={r['metadata']['lang']}")
+```
+
+## Filtered + hybrid search
+
+```python
+query = "capital city with good nightlife"
+q_vec = embed_query(query)
+
+# Filter to English-language docs
+results = collection.query(
+    vector=q_vec, top_k=3,
+    filter={"lang": {"$eq": "en"}},
+)
+
+# Hybrid search across all languages
+results = collection.hybrid_query(
+    vector=q_vec, query="nightlife capital", top_k=3, alpha=0.5,
+)
+```

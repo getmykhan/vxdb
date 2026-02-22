@@ -1,0 +1,145 @@
+---
+title: LangChain
+description: "Use LangChain's embedding abstractions to swap providers without changing your vxdb code."
+---
+
+## Setup
+
+Install only the providers you need:
+
+```bash
+pip install vxdb langchain-openai        # OpenAI
+pip install vxdb langchain-huggingface   # Local, free
+pip install vxdb langchain-cohere        # Cohere
+pip install vxdb langchain-ollama        # Ollama (local)
+```
+
+## Choose a provider
+
+LangChain gives you a unified interface — swap providers with one line:
+
+<Tabs>
+  <Tab title="OpenAI">
+    ```python
+    from langchain_openai import OpenAIEmbeddings
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    ```
+    Requires `OPENAI_API_KEY` environment variable.
+  </Tab>
+  <Tab title="Hugging Face (local)">
+    ```python
+    from langchain_huggingface import HuggingFaceEmbeddings
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    ```
+    Free, no API key. Runs entirely on your machine.
+  </Tab>
+  <Tab title="Cohere">
+    ```python
+    from langchain_cohere import CohereEmbeddings
+    embeddings = CohereEmbeddings(model="embed-english-v3.0")
+    ```
+    Requires `COHERE_API_KEY` environment variable.
+  </Tab>
+  <Tab title="Ollama">
+    ```python
+    from langchain_ollama import OllamaEmbeddings
+    embeddings = OllamaEmbeddings(model="nomic-embed-text")
+    ```
+    Free, local. Requires Ollama running.
+  </Tab>
+  <Tab title="Google">
+    ```python
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    ```
+    Requires `GOOGLE_API_KEY` environment variable.
+  </Tab>
+</Tabs>
+
+LangChain provides two methods:
+- `embed_documents(texts)` — batch embedding for indexing
+- `embed_query(text)` — single embedding for searching
+
+## Index documents
+
+The pattern is the same regardless of provider:
+
+```python
+import vxdb
+
+docs = [
+    {"id": "k8s", "text": "Kubernetes orchestrates containerized applications across clusters.", "source": "infra"},
+    {"id": "docker", "text": "Docker packages apps into lightweight, portable containers.", "source": "infra"},
+    {"id": "fastapi", "text": "FastAPI is a modern Python web framework for building APIs.", "source": "backend"},
+    {"id": "redis", "text": "Redis is an in-memory data store with sub-millisecond latency.", "source": "database"},
+]
+
+texts = [d["text"] for d in docs]
+vectors = embeddings.embed_documents(texts)
+
+EMBEDDING_DIM = len(vectors[0])
+db = vxdb.Database()
+collection = db.create_collection("devtools", dimension=EMBEDDING_DIM, metric="cosine")
+
+collection.upsert(
+    ids=[d["id"] for d in docs],
+    vectors=vectors,
+    metadata=[{"source": d["source"]} for d in docs],
+    documents=texts,
+)
+```
+
+## Search
+
+```python
+query = "How do I deploy containers to production?"
+query_vec = embeddings.embed_query(query)
+
+# Vector search
+results = collection.query(vector=query_vec, top_k=3)
+
+# Filtered search
+results = collection.query(
+    vector=query_vec, top_k=3,
+    filter={"source": {"$eq": "infra"}},
+)
+
+# Hybrid search
+results = collection.hybrid_query(
+    vector=query_vec, query=query, top_k=3, alpha=0.5,
+)
+```
+
+## Simple RAG pipeline
+
+Retrieve context from vxdb, then pass it to an LLM:
+
+```python
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+def rag_query(question: str, top_k: int = 3) -> str:
+    q_vec = embeddings.embed_query(question)
+    results = collection.query(vector=q_vec, top_k=top_k)
+
+    context_parts = []
+    for r in results:
+        original_text = next(d["text"] for d in docs if d["id"] == r["id"])
+        context_parts.append(f"[{r['id']}] {original_text}")
+    context = "\n".join(context_parts)
+
+    prompt = f"""Answer the question based on the context below.
+
+Context:
+{context}
+
+Question: {question}
+
+Answer:"""
+
+    response = llm.invoke(prompt)
+    return response.content
+
+answer = rag_query("What tool should I use for infrastructure as code?")
+```

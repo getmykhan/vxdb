@@ -1,0 +1,148 @@
+---
+title: Metadata Filtering
+description: "Filter search results using 10 operators on metadata fields."
+---
+
+## Overview
+
+Every vector in vxdb can have metadata — a dictionary of key-value pairs. You can filter search results to only include vectors matching specific metadata constraints.
+
+```python
+collection.upsert(
+    ids=["a", "b"],
+    vectors=[[0.1, ...], [0.3, ...]],
+    metadata=[
+        {"category": "tech", "year": 2024, "author": "alice"},
+        {"category": "food", "year": 2023, "author": "bob"},
+    ],
+)
+
+results = collection.query(
+    vector=[0.1, ...],
+    top_k=5,
+    filter={"category": {"$eq": "tech"}},
+)
+```
+
+## Operators
+
+### Comparison operators
+
+| Operator | Description | Example |
+|---|---|---|
+| `$eq` | Equals | `{"year": {"$eq": 2024}}` |
+| `$ne` | Not equals | `{"category": {"$ne": "food"}}` |
+| `$gt` | Greater than | `{"year": {"$gt": 2023}}` |
+| `$gte` | Greater than or equal | `{"price": {"$gte": 100}}` |
+| `$lt` | Less than | `{"year": {"$lt": 2025}}` |
+| `$lte` | Less than or equal | `{"score": {"$lte": 0.9}}` |
+
+### Set operators
+
+| Operator | Description | Example |
+|---|---|---|
+| `$in` | Value in list | `{"category": {"$in": ["tech", "science"]}}` |
+| `$nin` | Value not in list | `{"status": {"$nin": ["deleted", "archived"]}}` |
+
+### Logical operators
+
+| Operator | Description | Example |
+|---|---|---|
+| `$and` | All conditions must match | See below |
+| `$or` | At least one condition must match | See below |
+
+## Combining conditions
+
+### AND
+
+```python
+results = collection.query(
+    vector=[0.1, ...],
+    top_k=5,
+    filter={
+        "$and": [
+            {"category": {"$eq": "tech"}},
+            {"year": {"$gte": 2024}},
+        ]
+    },
+)
+```
+
+### OR
+
+```python
+results = collection.query(
+    vector=[0.1, ...],
+    top_k=5,
+    filter={
+        "$or": [
+            {"category": {"$eq": "tech"}},
+            {"category": {"$eq": "science"}},
+        ]
+    },
+)
+```
+
+### Nested logic
+
+```python
+results = collection.query(
+    vector=[0.1, ...],
+    top_k=5,
+    filter={
+        "$and": [
+            {"year": {"$gte": 2023}},
+            {
+                "$or": [
+                    {"category": {"$eq": "tech"}},
+                    {"category": {"$eq": "science"}},
+                ]
+            },
+        ]
+    },
+)
+```
+
+## Works with all search modes
+
+Filters work with vector search, hybrid search, and the REST API:
+
+<Tabs>
+  <Tab title="Vector search">
+    ```python
+    collection.query(
+        vector=[0.1, ...],
+        top_k=5,
+        filter={"year": {"$gte": 2024}},
+    )
+    ```
+  </Tab>
+  <Tab title="REST API">
+    ```bash
+    curl -X POST localhost:8080/collections/docs/query \
+      -H "Content-Type: application/json" \
+      -d '{
+        "vector": [0.1, 0.2],
+        "top_k": 5,
+        "filter": {"year": {"$gte": 2024}}
+      }'
+    ```
+  </Tab>
+</Tabs>
+
+## Supported value types
+
+Metadata values can be strings, numbers (int/float), or booleans. Nested objects are not supported as filter targets.
+
+```python
+collection.upsert(
+    ids=["a"],
+    vectors=[[0.1, ...]],
+    metadata=[{
+        "title": "Example",       # string
+        "year": 2024,             # integer
+        "score": 0.95,            # float
+        "published": True,        # boolean
+    }],
+)
+```

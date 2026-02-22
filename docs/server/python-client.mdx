@@ -1,0 +1,124 @@
+---
+title: Python Client
+description: "Connect to a remote vxdb server from Python."
+---
+
+## Installation
+
+```bash
+pip install 'vxdb[server]'
+```
+
+This installs `httpx` as a dependency.
+
+## Connect
+
+```python
+from vxdb import Client
+
+client = Client("http://localhost:8080")
+```
+
+The `Client` class mirrors the embedded `Database` API — same method names, same parameters.
+
+## Create a collection
+
+```python
+collection = client.create_collection(
+    name="docs",
+    dimension=384,
+    metric="cosine",
+    index="flat",
+)
+```
+
+## Upsert vectors
+
+```python
+collection.upsert(
+    ids=["a", "b", "c"],
+    vectors=[[0.1, 0.2, ...], [0.3, 0.4, ...], [0.5, 0.6, ...]],
+    metadata=[{"type": "article"}, {"type": "blog"}, {"type": "article"}],
+    documents=["intro to ML", "favorite recipes", "deep learning guide"],
+)
+```
+
+## Search
+
+### Vector search
+
+```python
+results = collection.query(vector=[0.1, 0.2, ...], top_k=5)
+```
+
+### Filtered search
+
+```python
+results = collection.query(
+    vector=[0.1, 0.2, ...],
+    top_k=5,
+    filter={"type": {"$eq": "article"}},
+)
+```
+
+### Hybrid search
+
+```python
+results = collection.hybrid_query(
+    vector=[0.1, 0.2, ...],
+    query="machine learning",
+    top_k=5,
+    alpha=0.5,
+)
+```
+
+### Keyword search
+
+```python
+results = collection.keyword_search(query="machine learning", top_k=5)
+```
+
+## Manage collections
+
+```python
+client.list_collections()
+# ["docs"]
+
+coll = client.get_collection("docs")
+
+client.delete_collection("docs")
+```
+
+## Count and delete
+
+```python
+collection.count()
+# 3
+
+collection.delete(ids=["a"])
+# [True]
+```
+
+## Context manager
+
+The client supports context managers for clean resource management:
+
+```python
+with Client("http://localhost:8080") as client:
+    coll = client.create_collection("temp", dimension=3)
+    coll.upsert(ids=["a"], vectors=[[1.0, 0.0, 0.0]])
+    results = coll.query(vector=[1.0, 0.0, 0.0], top_k=1)
+```
+
+## Error handling
+
+The client raises `VexClientError` on server errors:
+
+```python
+from vxdb.client import VexClientError
+
+try:
+    collection.query(vector=[0.1], top_k=5)  # wrong dimension
+except VexClientError as e:
+    print(f"Server error: {e}")
+```

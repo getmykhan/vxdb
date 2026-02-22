@@ -1,0 +1,147 @@
+---
+title: Quick Start
+description: "Every core feature in 5 minutes. No API keys needed."
+---
+
+## Create a database and collection
+
+A **Database** holds multiple **Collections**. Each collection stores vectors of a fixed dimension.
+
+```python
+import vxdb
+
+db = vxdb.Database()
+collection = db.create_collection(
+    name="articles",
+    dimension=4,        # match your embedding model (384, 768, 1536, etc.)
+    metric="cosine",    # cosine | euclidean | dot
+    index="flat",       # flat (exact) | hnsw (approximate, faster for >100k vectors)
+)
+```
+
+## Insert vectors
+
+Use `upsert()` to insert or update vectors. Each entry needs an **id** and a **vector**. Optionally attach **metadata** and **documents** (raw text for hybrid/keyword search).
+
+```python
+collection.upsert(
+    ids=["doc1", "doc2", "doc3", "doc4", "doc5"],
+    vectors=[
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.9, 0.1, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.5, 0.5, 0.0, 0.0],
+    ],
+    metadata=[
+        {"title": "Intro to ML",    "category": "tech",  "year": 2024},
+        {"title": "Cooking Pasta",   "category": "food",  "year": 2023},
+        {"title": "Advanced ML",     "category": "tech",  "year": 2024},
+        {"title": "Gardening 101",   "category": "lifestyle", "year": 2022},
+        {"title": "Data Science",    "category": "tech",  "year": 2023},
+    ],
+    documents=[
+        "Introduction to machine learning and neural networks",
+        "How to cook perfect pasta with homemade sauce",
+        "Advanced machine learning techniques and optimization",
+        "A beginner's guide to gardening and growing vegetables",
+        "Data science fundamentals with Python and statistics",
+    ],
+)
+```
+
+## Search — four ways
+
+### Vector similarity
+
+```python
+results = collection.query(vector=[1.0, 0.0, 0.0, 0.0], top_k=3)
+```
+
+### Filtered search
+
+Narrow results using [metadata filters](/core-concepts/metadata-filtering):
+
+```python
+results = collection.query(
+    vector=[1.0, 0.0, 0.0, 0.0],
+    top_k=5,
+    filter={
+        "$and": [
+            {"category": {"$eq": "tech"}},
+            {"year": {"$gte": 2024}},
+        ]
+    },
+)
+```
+
+### Hybrid search (vector + keyword)
+
+Combines vector similarity with BM25 keyword matching via [Reciprocal Rank Fusion](/core-concepts/hybrid-search):
+
+```python
+results = collection.hybrid_query(
+    vector=[1.0, 0.0, 0.0, 0.0],
+    query="machine learning",
+    top_k=3,
+    alpha=0.5,  # 0 = keyword only, 1 = vector only
+)
+```
+
+<Note>
+You must pass `documents=` during `upsert()` to use hybrid or keyword search.
+</Note>
+
+### Keyword search (BM25)
+
+```python
+results = collection.keyword_search(query="pasta sauce", top_k=3)
+```
+
+## Update and delete
+
+Upserting with an existing ID replaces that entry. Delete removes vectors by ID.
+
+```python
+collection.upsert(
+    ids=["doc1"],
+    vectors=[[0.0, 0.0, 0.0, 1.0]],
+    metadata=[{"title": "Intro to ML (revised)", "category": "tech", "year": 2025}],
+)
+
+collection.delete(ids=["doc4"])
+```
+
+## Multiple collections
+
+A single database can hold many collections:
+
+```python
+db.create_collection("images", dimension=512, metric="cosine", index="hnsw")
+db.create_collection("audio", dimension=256, metric="euclidean")
+
+db.list_collections()   # ["articles", "images", "audio"]
+db.delete_collection("audio")
+```
+
+## Result format
+
+Every search method returns a list of results:
+
+```python
+[
+    {"id": "doc1", "score": 0.9832, "metadata": {"title": "Intro to ML", ...}},
+    {"id": "doc3", "score": 0.9614, "metadata": {"title": "Advanced ML", ...}},
+]
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Integrations" icon="plug" href="/integrations/openai">
+    Plug in real embedding models from OpenAI, Sentence Transformers, Cohere, or LangChain.
+  </Card>
+  <Card title="Hybrid Search" icon="magnifying-glass" href="/core-concepts/hybrid-search">
+    Deep dive into when and why to use hybrid search.
+  </Card>
+</CardGroup>

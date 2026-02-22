@@ -1,0 +1,83 @@
+---
+title: Examples
+description: "Interactive Jupyter notebooks with step-by-step walkthroughs."
+---
+
+## Notebooks
+
+All examples are available as interactive Jupyter notebooks in the [`examples/`](https://github.com/getmykhan/vxdb/tree/main/examples) directory.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="https://github.com/getmykhan/vxdb/blob/main/examples/quickstart.ipynb">
+    Every core feature in 5 minutes. No API keys needed — uses small dummy vectors so you can run every cell immediately.
+  </Card>
+  <Card title="OpenAI Embeddings" icon="brain" href="https://github.com/getmykhan/vxdb/blob/main/examples/openai_embeddings.ipynb">
+    Semantic search with OpenAI's `text-embedding-3-small`. Covers embedding, indexing, filtered search, and hybrid search.
+  </Card>
+  <Card title="Sentence Transformers" icon="microchip" href="https://github.com/getmykhan/vxdb/blob/main/examples/sentence_transformers.ipynb">
+    Free, local embeddings with `all-MiniLM-L6-v2`. No API key, no internet needed after model download.
+  </Card>
+  <Card title="LangChain + RAG" icon="link" href="https://github.com/getmykhan/vxdb/blob/main/examples/langchain_integration.ipynb">
+    Use LangChain's embedding abstractions with vxdb. Includes a complete RAG pipeline example.
+  </Card>
+  <Card title="Cohere Embeddings" icon="globe" href="https://github.com/getmykhan/vxdb/blob/main/examples/cohere_embeddings.ipynb">
+    Multilingual search with Cohere's `embed-v4.0`. Cross-lingual retrieval across 100+ languages.
+  </Card>
+  <Card title="Hybrid Search Deep Dive" icon="magnifying-glass" href="https://github.com/getmykhan/vxdb/blob/main/examples/hybrid_search.ipynb">
+    Side-by-side comparison of vector, keyword, and hybrid search. Alpha tuning experiments.
+  </Card>
+</CardGroup>
+
+## Running the notebooks
+
+```bash
+git clone https://github.com/getmykhan/vxdb.git
+cd vxdb/examples
+
+pip install vxdb jupyter
+
+jupyter notebook
+```
+
+Each notebook lists its own dependencies at the top (e.g., `openai`, `sentence-transformers`, `cohere`). The quickstart notebook requires only `vxdb`.
+
+## Minimal examples
+
+### Embedded mode (3 lines)
+
+```python
+import vxdb
+
+db = vxdb.Database()
+collection = db.create_collection("test", dimension=3, metric="cosine")
+collection.upsert(ids=["a"], vectors=[[1.0, 0.0, 0.0]])
+results = collection.query(vector=[1.0, 0.0, 0.0], top_k=1)
+```
+
+### Server mode
+
+```python
+from vxdb import Client
+
+client = Client("http://localhost:8080")
+coll = client.create_collection("test", dimension=3)
+coll.upsert(ids=["a"], vectors=[[1.0, 0.0, 0.0]])
+results = coll.query(vector=[1.0, 0.0, 0.0], top_k=1)
+```
+
+### Hybrid search
+
+```python
+collection.upsert(
+    ids=["a", "b"],
+    vectors=[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
+    documents=["machine learning intro", "pasta recipe"],
+)
+
+results = collection.hybrid_query(
+    vector=[0.1, 0.2, 0.3],
+    query="machine learning",
+    top_k=5,
+    alpha=0.5,
+)
+```
