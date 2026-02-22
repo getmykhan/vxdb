@@ -22,6 +22,8 @@ import vxdb
 db = vxdb.Database()
 collection = db.create_collection("docs", dimension=384)
 
+embed = your_embedding_function  # OpenAI, Sentence Transformers, Cohere, etc.
+
 collection.upsert(
     ids=["a", "b"],
     vectors=[embed("how to train a model"), embed("best pasta recipe")],
@@ -30,6 +32,8 @@ collection.upsert(
 
 collection.query(vector=embed("machine learning"), top_k=5)
 ```
+
+`embed()` is any function that turns text into vectors — see [examples/](examples/) for OpenAI, Sentence Transformers, LangChain, and Cohere.
 
 That's it. No Docker. No config files. No cloud account. No 500 MB of dependencies.
 
@@ -278,7 +282,7 @@ results = collection.hybrid_query(
 | **Language**                 | Rust                    | Python           | Rust           | Proprietary | Go/C++         | Go          | C++           |
 | **Embedded mode**            | **PyO3, zero-copy**     | Python-speed     | No             | No          | No             | No          | SWIG bindings |
 | **Server mode**              | **Yes**                 | Yes              | Yes            | Cloud only  | Yes            | Yes         | No            |
-| `**pip install` just works** | **Yes**                 | Yes              | No (Docker)    | N/A (SaaS)  | No (Docker)    | No (Docker) | Yes           |
+| **`pip install` just works** | **Yes**                 | Yes              | No (Docker)    | N/A (SaaS)  | No (Docker)    | No (Docker) | Yes           |
 | **Binary size**              | **~5 MB**               | ~200 MB+         | ~50 MB         | N/A         | ~500 MB+       | ~100 MB+    | ~20 MB        |
 | **Startup time**             | **<10 ms**              | ~1-2 s           | ~1-3 s         | N/A         | ~5-10 s        | ~3-5 s      | <10 ms        |
 | **Hybrid search**            | **BM25 + RRF**          | No               | Requires setup | No          | Sparse vectors | BM25        | No            |
