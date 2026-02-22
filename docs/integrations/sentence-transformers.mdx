@@ -45,6 +45,7 @@ documents = [
 texts = [d["text"] for d in documents]
 vectors = model.encode(texts).tolist()
 
+# Use path= for persistent storage: vxdb.Database(path="./my_data")
 db = vxdb.Database()
 collection = db.create_collection("languages", dimension=EMBEDDING_DIM, metric="cosine")
 

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::Path;
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -238,10 +239,15 @@ struct Database {
 #[pymethods]
 impl Database {
     #[new]
-    fn new() -> Self {
-        Self {
-            inner: std::sync::Arc::new(CoreDatabase::new()),
-        }
+    #[pyo3(signature = (path=None))]
+    fn new(path: Option<&str>) -> PyResult<Self> {
+        let db = match path {
+            Some(p) => CoreDatabase::open(Path::new(p)).map_err(vex_err)?,
+            None => CoreDatabase::new(),
+        };
+        Ok(Self {
+            inner: std::sync::Arc::new(db),
+        })
     }
 
     #[pyo3(signature = (name, dimension, metric = "cosine", index = "flat"))]

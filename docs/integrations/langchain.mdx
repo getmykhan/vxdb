@@ -78,6 +78,7 @@ texts = [d["text"] for d in docs]
 vectors = embeddings.embed_documents(texts)
 
 EMBEDDING_DIM = len(vectors[0])
+# Use path= for persistent storage: vxdb.Database(path="./my_data")
 db = vxdb.Database()
 collection = db.create_collection("devtools", dimension=EMBEDDING_DIM, metric="cosine")
 

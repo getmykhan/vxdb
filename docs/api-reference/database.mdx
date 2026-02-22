@@ -10,8 +10,27 @@ The entry point for embedded mode. Holds and manages multiple collections.
 ```python
 import vxdb
 
+# Persistent — data survives restarts
+db = vxdb.Database(path="./my_data")
+
+# In-memory — fast and ephemeral
 db = vxdb.Database()
 ```
+
+**Constructor parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `path` | `str` | No | `None` | Directory for persistent storage. If omitted, the database is in-memory only. |
+
+When `path` is provided:
+- Collections, vectors, metadata, and documents are persisted to disk automatically on every write.
+- Data is stored using **mmap** (vectors), **SQLite** (metadata + documents), and a **write-ahead log** (crash recovery).
+- Reopening the same path restores all data.
+
+When `path` is omitted:
+- Everything lives in memory. Data is lost when the process exits.
+- Ideal for prototyping, tests, and ephemeral workloads.
 
 ---
 

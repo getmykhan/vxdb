@@ -33,6 +33,13 @@ Thumbs.db
 htmlcov/
 .coverage
 
+# vxdb persistent data (created by Database(path=...))
+*.vex
+*.wal
+store.db
+store.db-wal
+store.db-shm
+
 # Environment
 .env
 .env.local

@@ -71,6 +71,7 @@ documents = [
 texts = [d["text"] for d in documents]
 vectors = embed_documents(texts)
 
+# Use path= for persistent storage: vxdb.Database(path="./my_data")
 db = vxdb.Database()
 collection = db.create_collection("cities", dimension=EMBEDDING_DIM, metric="cosine")
 

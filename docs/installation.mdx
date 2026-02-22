@@ -65,11 +65,17 @@ vxdb stores pre-computed vectors — you bring any embedding model. Install the 
 ```python
 import vxdb
 
-db = vxdb.Database()
+db = vxdb.Database()  # in-memory, just for a quick test
 c = db.create_collection("test", dimension=3)
 c.upsert(ids=["a"], vectors=[[1.0, 0.0, 0.0]])
 print(c.query(vector=[1.0, 0.0, 0.0], top_k=1))
 # [{'id': 'a', 'score': 1.0, 'metadata': {}}]
+```
+
+For persistent storage (data survives restarts), pass a `path`:
+
+```python
+db = vxdb.Database(path="./my_data")
 ```
 
 ## Development install

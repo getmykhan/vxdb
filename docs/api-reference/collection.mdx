@@ -10,7 +10,7 @@ A collection of vectors with a fixed dimension. Supports upsert, query, hybrid s
 ```python
 import vxdb
 
-db = vxdb.Database()
+db = vxdb.Database(path="./my_data")  # or vxdb.Database() for in-memory
 collection = db.create_collection("docs", dimension=384)
 ```
 

@@ -1,25 +1,43 @@
 ---
 title: Comparison
-description: "How vxdb compares to ChromaDB, Qdrant, Pinecone, Milvus, Weaviate, and FAISS."
+description: "How vxdb compares to Zvec, ChromaDB, Qdrant, Pinecone, Milvus, Weaviate, and FAISS."
 ---
 
 ## At a glance
 
-|  | vxdb | ChromaDB | Qdrant | Pinecone | Milvus | Weaviate | FAISS |
-|---|---|---|---|---|---|---|---|
-| **Language** | Rust | Python | Rust | Proprietary | Go/C++ | Go | C++ |
-| **Embedded mode** | PyO3, zero-copy | Python-speed | No | No | No | No | SWIG bindings |
-| **Server mode** | Yes | Yes | Yes | Cloud only | Yes | Yes | No |
-| **`pip install` just works** | Yes | Yes | No (Docker) | N/A (SaaS) | No (Docker) | No (Docker) | Yes |
-| **Binary size** | ~5 MB | ~200 MB+ | ~50 MB | N/A | ~500 MB+ | ~100 MB+ | ~20 MB |
-| **Startup time** | <10 ms | ~1-2 s | ~1-3 s | N/A | ~5-10 s | ~3-5 s | <10 ms |
-| **Hybrid search** | BM25 + RRF | No | Requires setup | No | Sparse vectors | BM25 | No |
-| **Metadata filtering** | 10 operators | Yes | Yes | Yes | Yes | Yes | No |
-| **Persistence** | mmap + SQLite + WAL | SQLite + Parquet | RocksDB | Cloud | RocksDB | LSM | Manual |
-| **Crash recovery** | WAL | No | Yes | Yes | Yes | Yes | No |
-| **Docker image** | ~10 MB | ~500 MB+ | ~100 MB | No | ~1 GB+ | ~300 MB+ | No |
-| **Runs offline** | Yes | Yes | Yes | No | Yes | Yes | Yes |
-| **License** | Apache 2.0 | Apache 2.0 | Apache 2.0 | Proprietary | Apache 2.0 | BSD-3 | MIT |
+|  | vxdb | Zvec (Alibaba) | ChromaDB | Qdrant | Pinecone | Milvus | Weaviate | FAISS |
+|---|---|---|---|---|---|---|---|---|
+| **Language** | Rust | C++ (Proxima) | Python | Rust | Proprietary | Go/C++ | Go | C++ |
+| **Embedded mode** | PyO3, zero-copy | In-process | Python-speed | No | No | No | No | SWIG bindings |
+| **Server mode** | Yes | No | Yes | Yes | Cloud only | Yes | Yes | No |
+| **`pip install` just works** | Yes | Yes | Yes | No (Docker) | N/A (SaaS) | No (Docker) | No (Docker) | Yes |
+| **Binary size** | ~5 MB | ~30 MB | ~200 MB+ | ~50 MB | N/A | ~500 MB+ | ~100 MB+ | ~20 MB |
+| **Startup time** | <10 ms | <100 ms | ~1-2 s | ~1-3 s | N/A | ~5-10 s | ~3-5 s | <10 ms |
+| **Hybrid search** | BM25 + RRF | Vector + filters only | No | Requires setup | No | Sparse vectors | BM25 | No |
+| **BM25 keyword search** | Built-in | No | No | No | No | No | BM25 | No |
+| **Sparse vectors** | No | Yes | No | Yes | No | Yes | No | No |
+| **Multi-vector queries** | No | Yes | No | No | No | No | No | No |
+| **Metadata filtering** | 10 operators | Structured filters | Yes | Yes | Yes | Yes | Yes | No |
+| **Persistence** | mmap + SQLite + WAL | Custom engine | SQLite + Parquet | RocksDB | Cloud | RocksDB | LSM | Manual |
+| **Crash recovery** | WAL | Yes | No | Yes | Yes | Yes | Yes | No |
+| **Quantization** | No (planned) | int8 | No | Scalar/PQ | Yes | Yes | PQ/BQ | PQ/SQ |
+| **Docker image** | ~10 MB | N/A (no server) | ~500 MB+ | ~100 MB | No | ~1 GB+ | ~300 MB+ | No |
+| **Runs offline** | Yes | Yes | Yes | Yes | No | Yes | Yes | Yes |
+| **License** | Apache 2.0 | Apache 2.0 | Apache 2.0 | Apache 2.0 | Proprietary | Apache 2.0 | BSD-3 | MIT |
+
+## vxdb vs Zvec
+
+[Zvec](https://github.com/alibaba/zvec) (Alibaba) is the closest comparable — both are lightweight, in-process vector databases you install with `pip`. Here's where they differ:
+
+**Where vxdb stands out:**
+- **True hybrid search** — vxdb has a built-in BM25 keyword index fused with vector search via Reciprocal Rank Fusion. Zvec's "hybrid search" means vector + structured metadata filters, not full-text keyword search. If a user queries a product SKU, error code, or proper noun that doesn't embed well, vxdb's BM25 catches it.
+- **Server mode** — vxdb also runs as a standalone REST API server (Axum). Zvec is strictly in-process.
+- **Pure Rust, fully hackable** — vxdb's core is 100% Rust you own and can modify. Zvec wraps Alibaba's Proxima C++ engine.
+
+**Where Zvec has the edge:**
+- **Sparse vectors + multi-vector queries** — native support for learned sparse retrieval (SPLADE) and combining multiple vector fields per document.
+- **int8 quantization** — reduces memory usage significantly at scale.
+- **Battle-tested at billion scale** — built on Proxima, Alibaba's production vector engine.
 
 ## When to use vxdb
 
@@ -42,5 +60,6 @@ description: "How vxdb compares to ChromaDB, Qdrant, Pinecone, Milvus, Weaviate,
 
 - **Managed cloud service with zero ops**: Pinecone
 - **Distributed clusters at >100M vectors**: Milvus or Qdrant
+- **Billion-scale with sparse vectors and quantization**: Zvec
 - **GraphQL-native querying**: Weaviate
 - **Raw SIMD performance, no persistence needed**: FAISS

@@ -14,6 +14,8 @@ pub enum WalEntry {
         id: String,
         vector: VectorData,
         metadata: Metadata,
+        #[serde(default)]
+        document: Option<String>,
     },
     Delete {
         collection: String,
@@ -155,6 +157,7 @@ mod tests {
             id: "a".into(),
             vector: vec![1.0, 2.0],
             metadata: HashMap::new(),
+            document: None,
         })
         .unwrap();
 
@@ -173,6 +176,7 @@ mod tests {
                 id: "a".into(),
                 vector: vec![1.0, 2.0],
                 metadata: HashMap::from([("k".into(), serde_json::json!("v"))]),
+                document: None,
             })
             .unwrap();
             wal.append(&WalEntry::Delete {
@@ -202,6 +206,7 @@ mod tests {
             id: "a".into(),
             vector: vec![1.0],
             metadata: HashMap::new(),
+            document: None,
         })
         .unwrap();
         wal.append(&WalEntry::Upsert {
@@ -209,6 +214,7 @@ mod tests {
             id: "b".into(),
             vector: vec![2.0],
             metadata: HashMap::new(),
+            document: None,
         })
         .unwrap();
 
@@ -231,6 +237,7 @@ mod tests {
                 id: "old".into(),
                 vector: vec![1.0],
                 metadata: HashMap::new(),
+                document: None,
             })
             .unwrap();
             wal.append(&WalEntry::Checkpoint).unwrap();
@@ -239,6 +246,7 @@ mod tests {
                 id: "new".into(),
                 vector: vec![2.0],
                 metadata: HashMap::new(),
+                document: None,
             })
             .unwrap();
         }
@@ -264,6 +272,7 @@ mod tests {
                 id: "good".into(),
                 vector: vec![1.0],
                 metadata: HashMap::new(),
+                document: None,
             })
             .unwrap();
         }

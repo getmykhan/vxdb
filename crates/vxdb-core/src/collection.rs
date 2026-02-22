@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use parking_lot::RwLock;
 
@@ -9,33 +11,86 @@ use crate::hybrid::{self, Bm25Index};
 use crate::index::flat::FlatIndex;
 use crate::index::hnsw::{HnswConfig, HnswIndex};
 use crate::index::VectorIndex;
-use crate::types::{CollectionConfig, IndexKind, Metadata, SearchResult, VectorData};
+use crate::storage::persistent::PersistentStorage;
+use crate::storage::wal::{WalEntry, WriteAheadLog};
+use crate::types::{CollectionConfig, DistanceMetricKind, IndexKind, Metadata, SearchResult, VectorData};
 
 pub struct Collection {
     pub config: CollectionConfig,
     index: Box<dyn VectorIndex>,
     text_index: Bm25Index,
+    storage: Option<PersistentStorage>,
 }
 
 impl Collection {
     pub fn new(config: CollectionConfig) -> Self {
+        let index = Self::make_index(&config);
+        Self {
+            config,
+            index,
+            text_index: Bm25Index::new(),
+            storage: None,
+        }
+    }
+
+    /// Create a new persistent collection, writing config to disk.
+    pub fn create_persistent(config: CollectionConfig, path: &Path) -> VexResult<Self> {
+        fs::create_dir_all(path)?;
+        let config_json = serde_json::to_string_pretty(&config)?;
+        fs::write(path.join("config.json"), config_json)?;
+
+        let storage = PersistentStorage::create(path, config.dimension)?;
+        let index = Self::make_index(&config);
+        Ok(Self {
+            config,
+            index,
+            text_index: Bm25Index::new(),
+            storage: Some(storage),
+        })
+    }
+
+    /// Open an existing persistent collection from disk, reloading all data.
+    pub fn open(path: &Path) -> VexResult<Self> {
+        let config_bytes = fs::read(path.join("config.json"))?;
+        let config: CollectionConfig = serde_json::from_slice(&config_bytes)?;
+
+        let storage = PersistentStorage::open(path)?;
+        let entries = storage.load_all()?;
+
+        let mut index = Self::make_index(&config);
+        let mut text_index = Bm25Index::new();
+
+        for (id, vector, metadata, document) in entries {
+            index.insert(id.clone(), vector, metadata)?;
+            if let Some(doc) = &document {
+                text_index.insert(&id, doc);
+            }
+        }
+
+        Ok(Self {
+            config,
+            index,
+            text_index,
+            storage: Some(storage),
+        })
+    }
+
+    fn make_index(config: &CollectionConfig) -> Box<dyn VectorIndex> {
         let metric = metric_for_kind(config.metric);
-        let index: Box<dyn VectorIndex> = match config.index_kind {
+        match config.index_kind {
             IndexKind::Flat => Box::new(FlatIndex::new(config.dimension, metric)),
             IndexKind::Hnsw => Box::new(HnswIndex::new(
                 config.dimension,
                 metric,
                 HnswConfig::default(),
             )),
-        };
-        Self {
-            config,
-            index,
-            text_index: Bm25Index::new(),
         }
     }
 
     pub fn upsert(&mut self, id: String, vector: VectorData, metadata: Metadata) -> VexResult<()> {
+        if let Some(storage) = &mut self.storage {
+            storage.save_entry(&id, &vector, &metadata, None)?;
+        }
         self.index.insert(id, vector, metadata)
     }
 
@@ -46,6 +101,9 @@ impl Collection {
         metadata: Metadata,
         document: &str,
     ) -> VexResult<()> {
+        if let Some(storage) = &mut self.storage {
+            storage.save_entry(&id, &vector, &metadata, Some(document))?;
+        }
         self.index.insert(id.clone(), vector, metadata)?;
         self.text_index.insert(&id, document);
         Ok(())
@@ -61,6 +119,15 @@ impl Collection {
             return Err(VexError::Internal(
                 "ids, vectors, and metadata must have the same length".into(),
             ));
+        }
+        if let Some(storage) = &mut self.storage {
+            let batch: Vec<_> = ids
+                .iter()
+                .zip(vectors.iter())
+                .zip(metadata.iter())
+                .map(|((id, v), m)| (id.clone(), v.clone(), m.clone(), None))
+                .collect();
+            storage.save_batch(&batch)?;
         }
         for ((id, vec), meta) in ids.into_iter().zip(vectors).zip(metadata) {
             self.index.insert(id, vec, meta)?;
@@ -80,6 +147,16 @@ impl Collection {
                 "ids, vectors, metadata, and documents must have the same length".into(),
             ));
         }
+        if let Some(storage) = &mut self.storage {
+            let batch: Vec<_> = ids
+                .iter()
+                .zip(vectors.iter())
+                .zip(metadata.iter())
+                .zip(documents.iter())
+                .map(|(((id, v), m), d)| (id.clone(), v.clone(), m.clone(), Some(d.clone())))
+                .collect();
+            storage.save_batch(&batch)?;
+        }
         for (((id, vec), meta), doc) in ids.into_iter().zip(vectors).zip(metadata).zip(documents) {
             self.index.insert(id.clone(), vec, meta)?;
             self.text_index.insert(&id, &doc);
@@ -97,8 +174,6 @@ impl Collection {
         top_k: usize,
         filter: &Filter,
     ) -> VexResult<Vec<SearchResult>> {
-        // Post-filter strategy: fetch more candidates, then filter.
-        // Fetch up to 10x top_k to ensure enough results after filtering.
         let fetch_k = (top_k * 10).max(100);
         let candidates = self.index.search(vector, fetch_k)?;
         let filtered: Vec<SearchResult> = candidates
@@ -109,8 +184,6 @@ impl Collection {
         Ok(filtered)
     }
 
-    /// Hybrid search: combines vector similarity with BM25 keyword search via RRF.
-    /// `alpha` controls the weighting: 1.0 = pure vector, 0.0 = pure keyword, 0.5 = equal.
     pub fn hybrid_query(
         &self,
         vector: &[f32],
@@ -125,7 +198,6 @@ impl Collection {
 
         let fused = hybrid::reciprocal_rank_fusion(&vector_results, &keyword_results, top_k, 60, alpha);
 
-        // Look up metadata for the fused results
         let all_results = self.index.search(vector, fetch_k.max(self.index.len()))?;
         let meta_map: HashMap<String, Metadata> = all_results
             .into_iter()
@@ -144,13 +216,10 @@ impl Collection {
         Ok(results)
     }
 
-    /// Pure keyword search using BM25.
     pub fn keyword_search(&self, query: &str, top_k: usize) -> VexResult<Vec<SearchResult>> {
         let results = self.text_index.search(query, top_k);
 
-        // Fetch metadata from the vector index for each result
         let all_results = if !results.is_empty() {
-            // Use a dummy query to fetch all; we just need metadata
             let dim = self.config.dimension;
             let dummy = vec![0.0f32; dim];
             self.index.search(&dummy, self.index.len()).unwrap_or_default()
@@ -175,6 +244,9 @@ impl Collection {
     }
 
     pub fn delete(&mut self, id: &str) -> VexResult<bool> {
+        if let Some(storage) = &self.storage {
+            storage.delete_entry(id)?;
+        }
         self.text_index.remove(id);
         self.index.delete(id)
     }
@@ -190,13 +262,115 @@ impl Collection {
 
 pub struct Database {
     collections: RwLock<HashMap<String, RwLock<Collection>>>,
+    base_path: Option<PathBuf>,
+    wal: Option<RwLock<WriteAheadLog>>,
 }
 
 impl Database {
+    /// Create an in-memory database (no persistence).
     pub fn new() -> Self {
         Self {
             collections: RwLock::new(HashMap::new()),
+            base_path: None,
+            wal: None,
         }
+    }
+
+    /// Open or create a persistent database at the given path.
+    pub fn open(path: &Path) -> VexResult<Self> {
+        fs::create_dir_all(path)?;
+        let collections_dir = path.join("collections");
+        fs::create_dir_all(&collections_dir)?;
+
+        let mut collections = HashMap::new();
+
+        // Load existing collections from disk
+        if collections_dir.exists() {
+            for entry in fs::read_dir(&collections_dir)? {
+                let entry = entry?;
+                if entry.file_type()?.is_dir() {
+                    let coll_path = entry.path();
+                    if coll_path.join("config.json").exists() {
+                        let coll = Collection::open(&coll_path)?;
+                        let name = coll.config.name.clone();
+                        collections.insert(name, RwLock::new(coll));
+                    }
+                }
+            }
+        }
+
+        // Open WAL and replay un-checkpointed entries
+        let wal_path = path.join("vxdb.wal");
+        let wal = if wal_path.exists() {
+            WriteAheadLog::open(&wal_path)?
+        } else {
+            WriteAheadLog::create(&wal_path)?
+        };
+
+        let entries = wal.replay()?;
+
+        // Replay WAL entries into in-memory state + disk storage
+        for entry in &entries {
+            match entry {
+                WalEntry::CreateCollection {
+                    name,
+                    dimension,
+                    metric,
+                    index_kind,
+                } => {
+                    if !collections.contains_key(name) {
+                        let config = CollectionConfig::new(name, *dimension)
+                            .with_metric(parse_metric_str(metric))
+                            .with_index(parse_index_str(index_kind));
+                        let coll_path = collections_dir.join(name);
+                        let coll = Collection::create_persistent(config, &coll_path)?;
+                        collections.insert(name.clone(), RwLock::new(coll));
+                    }
+                }
+                WalEntry::DeleteCollection { name } => {
+                    collections.remove(name);
+                    let coll_path = collections_dir.join(name);
+                    if coll_path.exists() {
+                        let _ = fs::remove_dir_all(&coll_path);
+                    }
+                }
+                WalEntry::Upsert {
+                    collection,
+                    id,
+                    vector,
+                    metadata,
+                    document,
+                } => {
+                    if let Some(coll_lock) = collections.get(collection) {
+                        let mut coll = coll_lock.write();
+                        if let Some(doc) = document {
+                            coll.upsert_with_doc(id.clone(), vector.clone(), metadata.clone(), doc)?;
+                        } else {
+                            coll.upsert(id.clone(), vector.clone(), metadata.clone())?;
+                        }
+                    }
+                }
+                WalEntry::Delete { collection, id } => {
+                    if let Some(coll_lock) = collections.get(collection) {
+                        let mut coll = coll_lock.write();
+                        coll.delete(id)?;
+                    }
+                }
+                WalEntry::Checkpoint => {}
+            }
+        }
+
+        // Checkpoint to clear replayed entries
+        let mut wal = wal;
+        if !entries.is_empty() {
+            wal.checkpoint()?;
+        }
+
+        Ok(Self {
+            collections: RwLock::new(collections),
+            base_path: Some(path.to_path_buf()),
+            wal: Some(RwLock::new(wal)),
+        })
     }
 
     pub fn create_collection(&self, config: CollectionConfig) -> VexResult<()> {
@@ -204,8 +378,26 @@ impl Database {
         if collections.contains_key(&config.name) {
             return Err(VexError::CollectionAlreadyExists(config.name.clone()));
         }
+
+        if let Some(wal) = &self.wal {
+            let mut wal = wal.write();
+            wal.append(&WalEntry::CreateCollection {
+                name: config.name.clone(),
+                dimension: config.dimension,
+                metric: format!("{:?}", config.metric),
+                index_kind: format!("{:?}", config.index_kind),
+            })?;
+        }
+
         let name = config.name.clone();
-        collections.insert(name, RwLock::new(Collection::new(config)));
+        let coll = if let Some(base) = &self.base_path {
+            let coll_path = base.join("collections").join(&name);
+            Collection::create_persistent(config, &coll_path)?
+        } else {
+            Collection::new(config)
+        };
+
+        collections.insert(name, RwLock::new(coll));
         Ok(())
     }
 
@@ -219,6 +411,21 @@ impl Database {
         if collections.remove(name).is_none() {
             return Err(VexError::CollectionNotFound(name.into()));
         }
+
+        if let Some(wal) = &self.wal {
+            let mut wal = wal.write();
+            wal.append(&WalEntry::DeleteCollection {
+                name: name.into(),
+            })?;
+        }
+
+        if let Some(base) = &self.base_path {
+            let coll_path = base.join("collections").join(name);
+            if coll_path.exists() {
+                fs::remove_dir_all(&coll_path)?;
+            }
+        }
+
         Ok(())
     }
 
@@ -250,6 +457,23 @@ impl Database {
 impl Default for Database {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+fn parse_metric_str(s: &str) -> DistanceMetricKind {
+    match s {
+        "Cosine" => DistanceMetricKind::Cosine,
+        "Euclidean" => DistanceMetricKind::Euclidean,
+        "DotProduct" => DistanceMetricKind::DotProduct,
+        _ => DistanceMetricKind::Cosine,
+    }
+}
+
+fn parse_index_str(s: &str) -> IndexKind {
+    match s {
+        "Flat" => IndexKind::Flat,
+        "Hnsw" => IndexKind::Hnsw,
+        _ => IndexKind::Flat,
     }
 }
 
@@ -637,5 +861,194 @@ mod tests {
             })
             .unwrap();
         assert_eq!(results[0].id, "text_only");
+    }
+
+    // ---- Persistence tests ----
+
+    #[test]
+    fn test_persistent_round_trip() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let db_path = tmp.path().join("testdb");
+
+        // Create, insert, drop
+        {
+            let db = Database::open(&db_path).unwrap();
+            db.create_collection(sample_config("docs")).unwrap();
+
+            db.with_collection_mut("docs", |c| {
+                c.upsert("a".into(), vec![1.0, 0.0, 0.0], HashMap::from([("color".into(), serde_json::json!("red"))]))?;
+                c.upsert("b".into(), vec![0.0, 1.0, 0.0], HashMap::new())?;
+                Ok(())
+            })
+            .unwrap();
+
+            let count = db.with_collection("docs", |c| Ok(c.count())).unwrap();
+            assert_eq!(count, 2);
+        }
+
+        // Reopen and verify data survived
+        {
+            let db = Database::open(&db_path).unwrap();
+            let names = db.list_collections();
+            assert_eq!(names, vec!["docs"]);
+
+            let count = db.with_collection("docs", |c| Ok(c.count())).unwrap();
+            assert_eq!(count, 2);
+
+            let results = db
+                .with_collection("docs", |c| c.query(&[1.0, 0.0, 0.0], 2))
+                .unwrap();
+            assert_eq!(results[0].id, "a");
+            assert_eq!(results[0].metadata["color"], "red");
+        }
+    }
+
+    #[test]
+    fn test_persistent_delete_survives_restart() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let db_path = tmp.path().join("testdb");
+
+        {
+            let db = Database::open(&db_path).unwrap();
+            db.create_collection(sample_config("docs")).unwrap();
+            db.with_collection_mut("docs", |c| {
+                c.upsert("a".into(), vec![1.0, 0.0, 0.0], HashMap::new())?;
+                c.upsert("b".into(), vec![0.0, 1.0, 0.0], HashMap::new())?;
+                Ok(())
+            })
+            .unwrap();
+            db.with_collection_mut("docs", |c| { c.delete("a")?; Ok(()) }).unwrap();
+        }
+
+        {
+            let db = Database::open(&db_path).unwrap();
+            let count = db.with_collection("docs", |c| Ok(c.count())).unwrap();
+            assert_eq!(count, 1);
+            let has_a = db.with_collection("docs", |c| Ok(c.contains("a"))).unwrap();
+            assert!(!has_a);
+            let has_b = db.with_collection("docs", |c| Ok(c.contains("b"))).unwrap();
+            assert!(has_b);
+        }
+    }
+
+    #[test]
+    fn test_persistent_documents_and_bm25() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let db_path = tmp.path().join("testdb");
+
+        {
+            let db = Database::open(&db_path).unwrap();
+            db.create_collection(sample_config("docs")).unwrap();
+            db.with_collection_mut("docs", |c| {
+                c.upsert_batch_with_docs(
+                    vec!["ml".into(), "cook".into()],
+                    vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0]],
+                    vec![HashMap::new(), HashMap::new()],
+                    vec![
+                        "machine learning for image recognition".into(),
+                        "cooking recipes for pasta".into(),
+                    ],
+                )
+            })
+            .unwrap();
+        }
+
+        // Reopen: BM25 index should be rebuilt from stored documents
+        {
+            let db = Database::open(&db_path).unwrap();
+            let results = db
+                .with_collection("docs", |c| c.keyword_search("machine learning", 10))
+                .unwrap();
+            assert!(!results.is_empty());
+            assert_eq!(results[0].id, "ml");
+        }
+    }
+
+    #[test]
+    fn test_persistent_multiple_collections() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let db_path = tmp.path().join("testdb");
+
+        {
+            let db = Database::open(&db_path).unwrap();
+            db.create_collection(sample_config("docs")).unwrap();
+            db.create_collection(
+                CollectionConfig::new("images", 3).with_metric(DistanceMetricKind::Euclidean),
+            )
+            .unwrap();
+
+            db.with_collection_mut("docs", |c| {
+                c.upsert("d1".into(), vec![1.0, 0.0, 0.0], HashMap::new())
+            })
+            .unwrap();
+            db.with_collection_mut("images", |c| {
+                c.upsert("i1".into(), vec![0.0, 1.0, 0.0], HashMap::new())
+            })
+            .unwrap();
+        }
+
+        {
+            let db = Database::open(&db_path).unwrap();
+            let mut names = db.list_collections();
+            names.sort();
+            assert_eq!(names, vec!["docs", "images"]);
+
+            let d = db.with_collection("docs", |c| Ok(c.count())).unwrap();
+            assert_eq!(d, 1);
+            let i = db.with_collection("images", |c| Ok(c.count())).unwrap();
+            assert_eq!(i, 1);
+        }
+    }
+
+    #[test]
+    fn test_persistent_delete_collection() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let db_path = tmp.path().join("testdb");
+
+        {
+            let db = Database::open(&db_path).unwrap();
+            db.create_collection(sample_config("docs")).unwrap();
+            db.create_collection(sample_config("temp")).unwrap();
+            db.with_collection_mut("temp", |c| {
+                c.upsert("t1".into(), vec![1.0, 0.0, 0.0], HashMap::new())
+            })
+            .unwrap();
+            db.delete_collection("temp").unwrap();
+        }
+
+        {
+            let db = Database::open(&db_path).unwrap();
+            let names = db.list_collections();
+            assert_eq!(names, vec!["docs"]);
+        }
+    }
+
+    #[test]
+    fn test_persistent_upsert_overwrites() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let db_path = tmp.path().join("testdb");
+
+        {
+            let db = Database::open(&db_path).unwrap();
+            db.create_collection(sample_config("docs")).unwrap();
+            db.with_collection_mut("docs", |c| {
+                c.upsert("a".into(), vec![1.0, 0.0, 0.0], HashMap::from([("v".into(), serde_json::json!(1))]))?;
+                c.upsert("a".into(), vec![0.0, 1.0, 0.0], HashMap::from([("v".into(), serde_json::json!(2))]))?;
+                Ok(())
+            })
+            .unwrap();
+        }
+
+        {
+            let db = Database::open(&db_path).unwrap();
+            let count = db.with_collection("docs", |c| Ok(c.count())).unwrap();
+            assert_eq!(count, 1);
+
+            let results = db
+                .with_collection("docs", |c| c.query(&[0.0, 1.0, 0.0], 1))
+                .unwrap();
+            assert_eq!(results[0].id, "a");
+            assert_eq!(results[0].metadata["v"], 2);
+        }
     }
 }

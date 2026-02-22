@@ -43,15 +43,21 @@ Each notebook lists its own dependencies at the top (e.g., `openai`, `sentence-t
 
 ## Minimal examples
 
-### Embedded mode (3 lines)
+### Embedded mode (persistent)
 
 ```python
 import vxdb
 
-db = vxdb.Database()
+db = vxdb.Database(path="./my_data")  # data survives restarts
 collection = db.create_collection("test", dimension=3, metric="cosine")
 collection.upsert(ids=["a"], vectors=[[1.0, 0.0, 0.0]])
 results = collection.query(vector=[1.0, 0.0, 0.0], top_k=1)
+```
+
+### Embedded mode (in-memory)
+
+```python
+db = vxdb.Database()  # ephemeral — great for prototyping
 ```
 
 ### Server mode

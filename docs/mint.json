@@ -56,6 +56,7 @@
       "group": "Core Concepts",
       "pages": [
         "core-concepts/collections",
+        "core-concepts/persistence",
         "core-concepts/vector-search",
         "core-concepts/hybrid-search",
         "core-concepts/metadata-filtering"

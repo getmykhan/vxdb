@@ -1,0 +1,107 @@
+---
+title: Persistence
+description: "Durable storage with mmap vectors, SQLite metadata, and a write-ahead log."
+---
+
+## In-memory vs persistent
+
+vxdb supports two modes:
+
+| Mode | Constructor | Data lifetime | Use case |
+|---|---|---|---|
+| **In-memory** | `vxdb.Database()` | Gone when the process exits | Prototyping, tests, CI pipelines |
+| **Persistent** | `vxdb.Database(path="./data")` | Survives restarts and crashes | Production, RAG apps, anything long-lived |
+
+## Getting started
+
+```python
+import vxdb
+
+db = vxdb.Database(path="./my_data")
+collection = db.create_collection("docs", dimension=384)
+
+collection.upsert(
+    ids=["a", "b"],
+    vectors=[[0.1, 0.2, ...], [0.3, 0.4, ...]],
+    metadata=[{"topic": "ml"}, {"topic": "nlp"}],
+    documents=["intro to machine learning", "natural language processing"],
+)
+```
+
+Close the process. Reopen later:
+
+```python
+db = vxdb.Database(path="./my_data")
+collection = db.get_collection("docs")
+
+print(collection.count())  # 2 — data is still there
+results = collection.query(vector=[0.1, 0.2, ...], top_k=5)
+```
+
+## What gets persisted
+
+Everything:
+
+- **Vectors** — stored in a memory-mapped file (`vectors.vex`) for fast I/O
+- **Metadata** — stored in SQLite (`store.db`) with WAL journaling
+- **Documents** — stored alongside metadata in SQLite, rebuilt into the BM25 index on startup
+- **Collection config** — dimension, metric, index type saved as `config.json`
+
+## On-disk layout
+
+```
+my_data/
+  vxdb.wal                        # write-ahead log for crash recovery
+  collections/
+    docs/
+      config.json                 # collection settings
+      vectors.vex                 # mmap vector storage
+      store.db                    # SQLite: ids, metadata, documents
+```
+
+## How writes work
+
+Every mutation follows this path:
+
+1. **Append to WAL** — sequential write + fsync for crash safety
+2. **Apply to in-memory index** — instant, enables fast queries
+3. **Write-through to disk** — mmap for vectors, SQLite for metadata
+
+This means your data is durable the moment `upsert()` or `delete()` returns.
+
+## Crash recovery
+
+If the process crashes mid-write, the write-ahead log catches it. On the next `Database(path=...)` call:
+
+1. Existing collections are loaded from disk (mmap + SQLite)
+2. The WAL is replayed to recover any operations that didn't make it to disk
+3. The WAL is checkpointed (cleared)
+
+No manual intervention needed.
+
+## Multiple collections
+
+A single persistent database can hold many collections:
+
+```python
+db = vxdb.Database(path="./my_data")
+db.create_collection("docs", dimension=384)
+db.create_collection("images", dimension=512, metric="euclidean")
+
+# Later...
+db = vxdb.Database(path="./my_data")
+db.list_collections()  # ["docs", "images"]
+```
+
+## Deleting a collection
+
+```python
+db.delete_collection("images")
+```
+
+This removes the collection from memory and deletes its directory from disk.
+
+## Known limitations
+
+- **Mmap dead space**: updating an existing vector appends a new copy; the old slot is not reclaimed. Compaction is planned for a future release.
+- **HNSW rebuild on startup**: the HNSW graph is rebuilt by re-inserting all vectors on load. Fine for datasets under ~100K vectors. Graph serialization is planned.

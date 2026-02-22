@@ -10,7 +10,7 @@ vxdb is a lightweight, high-performance vector database built in **Rust** with f
 ```python
 import vxdb
 
-db = vxdb.Database()
+db = vxdb.Database(path="./my_data")  # persistent — data survives restarts
 collection = db.create_collection("docs", dimension=384)
 
 collection.upsert(
@@ -26,6 +26,10 @@ collection.query(vector=embed("machine learning"), top_k=5)
 
 No Docker. No config files. No cloud account. No 500 MB of dependencies.
 
+<Tip>
+Pass `path=` to persist data to disk. Omit it for a fast, ephemeral in-memory database — great for prototyping and tests.
+</Tip>
+
 ## Why vxdb?
 
 <CardGroup cols={2}>
@@ -40,6 +44,12 @@ No Docker. No config files. No cloud account. No 500 MB of dependencies.
   </Card>
   <Card title="Hybrid search built-in" icon="magnifying-glass">
     Vector similarity + BM25 keyword matching fused via Reciprocal Rank Fusion. One API call. Tunable alpha parameter. No separate search engine needed.
+  </Card>
+  <Card title="Persistent by default" icon="database">
+    Pass `path=` and your data is durably stored via mmap vectors, SQLite metadata, and a write-ahead log. Survives crashes and restarts.
+  </Card>
+  <Card title="Embedded + server" icon="server">
+    Same Rust engine runs in-process (PyO3) or as a standalone REST server. Start embedded, scale to multi-client when you're ready.
   </Card>
 </CardGroup>
 

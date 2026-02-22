@@ -74,7 +74,7 @@ from sentence_transformers import SentenceTransformer
 import vxdb
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
-db = vxdb.Database()
+db = vxdb.Database(path="./search_data")
 collection = db.create_collection("docs", dimension=384)
 
 texts = ["intro to machine learning", "best pasta recipe", "deep learning guide"]
