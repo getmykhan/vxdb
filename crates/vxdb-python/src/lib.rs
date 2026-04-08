@@ -1,3 +1,5 @@
+#![allow(clippy::useless_conversion)]
+
 use std::collections::HashMap;
 use std::path::Path;
 

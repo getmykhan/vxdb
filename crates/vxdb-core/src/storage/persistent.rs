@@ -8,6 +8,8 @@ use crate::error::{VexError, VexResult};
 use crate::storage::mmap::MmapVectorStorage;
 use crate::types::{Metadata, VectorData};
 
+type StoredEntry = (String, VectorData, Metadata, Option<String>);
+
 /// Per-collection persistent storage combining mmap vectors + SQLite metadata.
 /// The SQLite Connection is wrapped in a Mutex for thread safety (Send + Sync).
 pub struct PersistentStorage {
@@ -116,7 +118,7 @@ impl PersistentStorage {
     }
 
     /// Load all stored entries. Returns (id, vector, metadata, document).
-    pub fn load_all(&self) -> VexResult<Vec<(String, VectorData, Metadata, Option<String>)>> {
+    pub fn load_all(&self) -> VexResult<Vec<StoredEntry>> {
         let conn = self.conn.lock().map_err(|e| VexError::Internal(e.to_string()))?;
         let mut stmt = conn
             .prepare("SELECT id, vector_idx, metadata, document FROM entries")

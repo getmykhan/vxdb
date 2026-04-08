@@ -53,7 +53,7 @@ impl MmapVectorStorage {
         if mmap.len() < HEADER_SIZE {
             return Err(VexError::Internal("file too small for header".into()));
         }
-        if &mmap[0..4] != &MAGIC {
+        if mmap[0..4] != MAGIC {
             return Err(VexError::Internal("invalid magic bytes".into()));
         }
 
@@ -92,7 +92,7 @@ impl MmapVectorStorage {
         let byte_data: &[u8] = unsafe {
             std::slice::from_raw_parts(
                 vector.as_ptr() as *const u8,
-                vector.len() * std::mem::size_of::<f32>(),
+                std::mem::size_of_val(vector),
             )
         };
 

@@ -70,14 +70,14 @@ impl Filter {
     /// Evaluate the filter against an in-memory metadata map.
     pub fn matches(&self, meta: &Metadata) -> bool {
         match self {
-            Filter::Eq(field, val) => meta.get(field).map_or(false, |v| v == val),
-            Filter::Ne(field, val) => meta.get(field).map_or(true, |v| v != val),
-            Filter::Gt(field, val) => meta.get(field).map_or(false, |v| cmp_values(v, val) == Some(std::cmp::Ordering::Greater)),
-            Filter::Gte(field, val) => meta.get(field).map_or(false, |v| matches!(cmp_values(v, val), Some(std::cmp::Ordering::Greater | std::cmp::Ordering::Equal))),
-            Filter::Lt(field, val) => meta.get(field).map_or(false, |v| cmp_values(v, val) == Some(std::cmp::Ordering::Less)),
-            Filter::Lte(field, val) => meta.get(field).map_or(false, |v| matches!(cmp_values(v, val), Some(std::cmp::Ordering::Less | std::cmp::Ordering::Equal))),
-            Filter::In(field, vals) => meta.get(field).map_or(false, |v| vals.contains(v)),
-            Filter::Nin(field, vals) => meta.get(field).map_or(true, |v| !vals.contains(v)),
+            Filter::Eq(field, val) => meta.get(field) == Some(val),
+            Filter::Ne(field, val) => meta.get(field) != Some(val),
+            Filter::Gt(field, val) => meta.get(field).is_some_and(|v| cmp_values(v, val) == Some(std::cmp::Ordering::Greater)),
+            Filter::Gte(field, val) => meta.get(field).is_some_and(|v| matches!(cmp_values(v, val), Some(std::cmp::Ordering::Greater | std::cmp::Ordering::Equal))),
+            Filter::Lt(field, val) => meta.get(field).is_some_and(|v| cmp_values(v, val) == Some(std::cmp::Ordering::Less)),
+            Filter::Lte(field, val) => meta.get(field).is_some_and(|v| matches!(cmp_values(v, val), Some(std::cmp::Ordering::Less | std::cmp::Ordering::Equal))),
+            Filter::In(field, vals) => meta.get(field).is_some_and(|v| vals.contains(v)),
+            Filter::Nin(field, vals) => meta.get(field).is_none_or(|v| !vals.contains(v)),
             Filter::And(subs) => subs.iter().all(|f| f.matches(meta)),
             Filter::Or(subs) => subs.iter().any(|f| f.matches(meta)),
         }
