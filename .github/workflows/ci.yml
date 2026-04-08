@@ -35,12 +35,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install maturin and build wheel
+      - name: Build and install wheel
         run: |
           pip install maturin pytest
-          maturin develop
+          maturin build --out dist
+          pip install dist/*.whl
       - name: Run tests
-        run: PYTHONPATH=python pytest tests/test_embedded.py -v
+        run: pytest tests/test_embedded.py -v
 
   lint:
     name: Python lint

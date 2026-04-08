@@ -52,6 +52,7 @@ def server():
 
     # Wait for server to be ready
     import httpx
+
     for _ in range(30):
         try:
             httpx.get(f"http://127.0.0.1:{SERVER_PORT}/collections", timeout=1.0)
@@ -71,6 +72,7 @@ def server():
 @pytest.fixture
 def client(server):
     from vxdb.client import Client
+
     c = Client(f"http://127.0.0.1:{SERVER_PORT}")
     yield c
     # Clean up collections after each test

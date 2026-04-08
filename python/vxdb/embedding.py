@@ -1,7 +1,6 @@
 """Pluggable embedding interface for vxdb."""
 
 from abc import ABC, abstractmethod
-from typing import List
 
 
 class EmbeddingFunction(ABC):
@@ -23,6 +22,6 @@ class EmbeddingFunction(ABC):
     """
 
     @abstractmethod
-    def embed(self, texts: List[str]) -> List[List[float]]:
+    def embed(self, texts: list[str]) -> list[list[float]]:
         """Convert a list of text strings into embedding vectors."""
         ...

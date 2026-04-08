@@ -294,13 +294,9 @@ def test_hybrid_alpha_extremes():
     )
 
     # alpha=1.0 (pure vector): vec_only should win
-    results = coll.hybrid_query(
-        vector=[1.0, 0.0, 0.0], query="quantum computing", top_k=2, alpha=1.0
-    )
+    results = coll.hybrid_query(vector=[1.0, 0.0, 0.0], query="quantum computing", top_k=2, alpha=1.0)
     assert results[0]["id"] == "vec_only"
 
     # alpha=0.0 (pure keyword): text_only should win
-    results = coll.hybrid_query(
-        vector=[1.0, 0.0, 0.0], query="quantum computing", top_k=2, alpha=0.0
-    )
+    results = coll.hybrid_query(vector=[1.0, 0.0, 0.0], query="quantum computing", top_k=2, alpha=0.0)
     assert results[0]["id"] == "text_only"

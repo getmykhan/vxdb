@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     import httpx
@@ -12,24 +12,25 @@ except ImportError:
 
 class VexClientError(Exception):
     """Raised when the server returns an error."""
+
     pass
 
 
 class RemoteCollection:
     """Proxy for a collection on a remote vxdb server."""
 
-    def __init__(self, client: "Client", name: str):
+    def __init__(self, client: Client, name: str):
         self._client = client
         self.name = name
 
     def upsert(
         self,
-        ids: List[str],
-        vectors: List[List[float]],
-        metadata: Optional[List[Dict[str, Any]]] = None,
-        documents: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {"ids": ids, "vectors": vectors}
+        ids: list[str],
+        vectors: list[list[float]],
+        metadata: list[dict[str, Any]] | None = None,
+        documents: list[str] | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"ids": ids, "vectors": vectors}
         if metadata is not None:
             payload["metadata"] = metadata
         if documents is not None:
@@ -38,11 +39,11 @@ class RemoteCollection:
 
     def query(
         self,
-        vector: List[float],
+        vector: list[float],
         top_k: int = 10,
-        filter: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
-        payload: Dict[str, Any] = {"vector": vector, "top_k": top_k}
+        filter: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        payload: dict[str, Any] = {"vector": vector, "top_k": top_k}
         if filter is not None:
             payload["filter"] = filter
         resp = self._client._post(f"/collections/{self.name}/query", payload)
@@ -50,12 +51,12 @@ class RemoteCollection:
 
     def hybrid_query(
         self,
-        vector: List[float],
+        vector: list[float],
         query: str,
         top_k: int = 10,
         alpha: float = 0.5,
-    ) -> List[Dict[str, Any]]:
-        payload: Dict[str, Any] = {
+    ) -> list[dict[str, Any]]:
+        payload: dict[str, Any] = {
             "vector": vector,
             "query": query,
             "top_k": top_k,
@@ -68,12 +69,12 @@ class RemoteCollection:
         self,
         query: str,
         top_k: int = 10,
-    ) -> List[Dict[str, Any]]:
-        payload: Dict[str, Any] = {"query": query, "top_k": top_k}
+    ) -> list[dict[str, Any]]:
+        payload: dict[str, Any] = {"query": query, "top_k": top_k}
         resp = self._client._post(f"/collections/{self.name}/keyword", payload)
         return resp["results"]
 
-    def delete(self, ids: List[str]) -> List[bool]:
+    def delete(self, ids: list[str]) -> list[bool]:
         resp = self._client._post(f"/collections/{self.name}/delete", {"ids": ids})
         return resp["deleted"]
 
@@ -98,10 +99,7 @@ class Client:
 
     def __init__(self, base_url: str = "http://localhost:8080"):
         if httpx is None:
-            raise ImportError(
-                "httpx is required for server mode. Install it with: "
-                "pip install 'vxdb[server]'"
-            )
+            raise ImportError("httpx is required for server mode. Install it with: pip install 'vxdb[server]'")
         self._base_url = base_url.rstrip("/")
         self._http = httpx.Client(base_url=self._base_url, timeout=30.0)
 
@@ -143,18 +141,21 @@ class Client:
         metric: str = "cosine",
         index: str = "flat",
     ) -> RemoteCollection:
-        self._post("/collections", {
-            "name": name,
-            "dimension": dimension,
-            "metric": metric,
-            "index": index,
-        })
+        self._post(
+            "/collections",
+            {
+                "name": name,
+                "dimension": dimension,
+                "metric": metric,
+                "index": index,
+            },
+        )
         return RemoteCollection(self, name)
 
     def get_collection(self, name: str) -> RemoteCollection:
         return RemoteCollection(self, name)
 
-    def list_collections(self) -> List[str]:
+    def list_collections(self) -> list[str]:
         resp = self._get("/collections")
         return resp["collections"]
 
@@ -164,7 +165,7 @@ class Client:
     def close(self) -> None:
         self._http.close()
 
-    def __enter__(self) -> "Client":
+    def __enter__(self) -> Client:
         return self
 
     def __exit__(self, *args: Any) -> None:

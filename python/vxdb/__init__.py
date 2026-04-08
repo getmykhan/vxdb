@@ -1,6 +1,6 @@
 """vxdb — A lightweight, high-performance vector store."""
 
-from vxdb._vxdb import Database, Collection
+from vxdb._vxdb import Collection, Database
 from vxdb.client import Client
 
 __all__ = ["Database", "Collection", "Client"]
