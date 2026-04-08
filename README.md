@@ -47,7 +47,7 @@ The entire hot path — distance computation, HNSW traversal, BM25 scoring, mmap
 
 ### Stupid light
 
-A single native wheel **under 5 MB**. Starts in **under 10 ms**. Compare that to ChromaDB (~200 MB, ~2s startup), Milvus (needs Docker + etcd + MinIO), or Pinecone (needs a cloud account and an internet connection).
+A single native wheel **under 5 MB** with **zero Python dependencies**. Starts in **under 10 ms**. No numpy. No scipy. No protobuf. No grpcio version conflicts. Just `pip install vxdb` and you're done.
 
 ### Runs anywhere
 
@@ -57,11 +57,13 @@ Laptop. CI pipeline. Raspberry Pi. AWS Lambda. Docker container. Air-gapped serv
 
 Vector similarity + BM25 keyword matching fused via **Reciprocal Rank Fusion**. One API call. Tunable `alpha` parameter. No separate search engine needed. No Elasticsearch sidecar.
 
-Compare this with Zvec (Alibaba's in-process vector DB): their "hybrid search" is vector + structured metadata filters — not the same thing as full-text keyword search. If a user searches for a term that doesn't embed well (error codes, product SKUs, proper nouns), vxdb's BM25 catches it. Zvec won't.
+Other databases like Qdrant, Milvus, and Zvec support hybrid search too — but they require you to run a separate sparse encoder (BM25 or SPLADE) yourself and pass pre-computed sparse vectors. vxdb computes BM25 internally from the documents you already upserted. One call: `hybrid_query(vector=..., query="text", alpha=0.5)`. No extra step.
 
 ### Dual-mode: embedded + server
 
-Most in-process vector databases (Zvec, FAISS) can only run inside your process. Most server-based databases (Qdrant, Milvus) require Docker. vxdb does both — same Rust engine, same API. Start embedded in a notebook, scale to a multi-client REST server when you're ready. No rewrite.
+Many databases now offer an "embedded" mode — but the implementations vary widely. Qdrant's local mode is a Python reimplementation (not their Rust engine). Weaviate embedded downloads a Go binary and runs it as a subprocess. Milvus Lite works but is limited to Linux/macOS and recommended for <1M vectors.
+
+vxdb's embedded mode is the **real Rust engine** compiled directly into a Python extension via PyO3. Zero-copy. No subprocess. No network. And the same engine powers the standalone REST server — start in a notebook, scale to multi-client HTTP when you're ready. No rewrite.
 
 ---
 
@@ -274,25 +276,26 @@ results = collection.hybrid_query(
 ## How vxdb compares
 
 
-|                              | vxdb                    | Zvec (Alibaba)        | ChromaDB         | Qdrant         | Pinecone    | Milvus         | Weaviate    | FAISS         |
-| ---------------------------- | ----------------------- | --------------------- | ---------------- | -------------- | ----------- | -------------- | ----------- | ------------- |
-| **Language**                 | Rust                    | C++ (Proxima)         | Python           | Rust           | Proprietary | Go/C++         | Go          | C++           |
-| **Embedded mode**            | **PyO3, zero-copy**     | In-process            | Python-speed     | No             | No          | No             | No          | SWIG bindings |
-| **Server mode**              | **Yes**                 | No                    | Yes              | Yes            | Cloud only  | Yes            | Yes         | No            |
-| `**pip install` just works** | **Yes**                 | Yes                   | Yes              | No (Docker)    | N/A (SaaS)  | No (Docker)    | No (Docker) | Yes           |
-| **Binary size**              | **~5 MB**               | ~30 MB                | ~200 MB+         | ~50 MB         | N/A         | ~500 MB+       | ~100 MB+    | ~20 MB        |
-| **Startup time**             | **<10 ms**              | <100 ms               | ~1-2 s           | ~1-3 s         | N/A         | ~5-10 s        | ~3-5 s      | <10 ms        |
-| **Hybrid search**            | **BM25 + RRF**          | Vector + filters only | No               | Requires setup | No          | Sparse vectors | BM25        | No            |
-| **BM25 keyword search**      | **Built-in**            | No                    | No               | No             | No          | No             | BM25        | No            |
-| **Sparse vectors**           | No                      | **Yes**               | No               | Yes            | No          | Yes            | No          | No            |
-| **Multi-vector queries**     | No                      | **Yes**               | No               | No             | No          | No             | No          | No            |
-| **Metadata filtering**       | **10 operators**        | Structured filters    | Yes              | Yes            | Yes         | Yes            | Yes         | No            |
-| **Persistence**              | **mmap + SQLite + WAL** | Custom engine         | SQLite + Parquet | RocksDB        | Cloud       | RocksDB        | LSM         | Manual        |
-| **Crash recovery**           | **WAL**                 | Yes                   | No               | Yes            | Yes         | Yes            | Yes         | No            |
-| **Quantization**             | No (planned)            | **int8**              | No               | Scalar/PQ      | Yes         | Yes            | PQ/BQ       | PQ/SQ         |
-| **Docker image**             | **~10 MB**              | N/A (no server)       | ~500 MB+         | ~100 MB        | No          | ~1 GB+         | ~300 MB+    | No            |
-| **Runs offline**             | **Yes**                 | Yes                   | Yes              | Yes            | No          | Yes            | Yes         | Yes           |
-| **License**                  | **Apache 2.0**          | Apache 2.0            | Apache 2.0       | Apache 2.0     | Proprietary | Apache 2.0     | BSD-3       | MIT           |
+|                                  | vxdb                        | Zvec (Alibaba)              | ChromaDB                | Qdrant                    | Pinecone      | Milvus                  | Weaviate                    | FAISS         |
+| -------------------------------- | --------------------------- | --------------------------- | ----------------------- | ------------------------- | ------------- | ----------------------- | --------------------------- | ------------- |
+| **Language**                     | Rust                        | C++ (Proxima)               | Rust (v1.0+)            | Rust                      | Proprietary   | Go/C++                  | Go                          | C++           |
+| **Embedded mode**                | **PyO3, true in-process**   | In-process                  | In-process              | Python-only local mode    | No            | Milvus Lite             | Subprocess (downloads Go binary) | SWIG bindings |
+| **Server mode**                  | **Yes**                     | No                          | Yes                     | Yes                       | Cloud only    | Yes                     | Yes                         | No            |
+| **`pip install` just works**     | **Yes**                     | Yes                         | Yes                     | Yes (local mode)          | N/A (SaaS)    | Yes (Milvus Lite)       | Yes (Linux/macOS)           | Yes           |
+| **Python dependencies**          | **None (zero)**             | DashText SDK                | Several                 | numpy, grpcio, etc.       | N/A           | grpcio, protobuf, etc.  | grpcio, etc.                | numpy         |
+| **Wheel size**                   | **~5 MB**                   | ~30 MB                      | ~20 MB                  | ~50 MB                    | N/A           | ~50 MB+                 | ~100 MB+ (downloads binary) | ~20 MB        |
+| **Startup time**                 | **<10 ms**                  | <100 ms                     | <500 ms                 | ~1-3 s (server)           | N/A           | ~5-10 s (server)        | ~3-5 s (server)             | <10 ms        |
+| **Hybrid search**                | **Built-in BM25 + RRF**    | BM25 + RRF + weighted       | RRF (dense+sparse)      | RRF, DBSF                 | Sparse+dense  | Sparse vectors          | BM25 + RRF                  | No            |
+| **BM25 without external encoder** | **Yes (automatic)**        | Requires DashText SDK       | No                      | Requires sparse encoder   | No            | Requires sparse encoder | Yes                         | No            |
+| **Sparse vectors**               | No                          | **Yes**                     | Yes                     | Yes                       | Yes           | Yes                     | No                          | No            |
+| **Multi-vector queries**         | No                          | **Yes**                     | No                      | Yes                       | No            | No                      | No                          | No            |
+| **Metadata filtering**           | **10 operators**            | Structured filters          | Yes                     | Yes                       | Yes           | Yes                     | Yes                         | No            |
+| **Persistence**                  | **mmap + SQLite + WAL**     | Custom engine               | SQLite                  | RocksDB                   | Cloud         | RocksDB                 | LSM                         | Manual        |
+| **Crash recovery**               | **WAL**                     | Yes                         | Yes (v1.0)              | Yes                       | Yes           | Yes                     | Yes                         | No            |
+| **Quantization**                 | No (planned)                | **int8, RabitQ**            | No                      | Scalar/PQ                 | Yes           | Yes                     | PQ/BQ                       | PQ/SQ         |
+| **Docker image**                 | **~10 MB**                  | N/A (no server)             | ~200 MB+                | ~100 MB                   | No            | ~1 GB+                  | ~300 MB+                    | No            |
+| **Runs offline**                 | **Yes**                     | Yes                         | Yes                     | Yes                       | No            | Yes                     | Yes                         | Yes           |
+| **License**                      | **Apache 2.0**              | Apache 2.0                  | Apache 2.0              | Apache 2.0                | Proprietary   | Apache 2.0              | BSD-3                       | MIT           |
 
 
 ---
@@ -368,7 +371,7 @@ Interactive Jupyter notebooks with step-by-step walkthroughs:
 ## Development
 
 ```bash
-git clone https://github.com/your-org/vxdb.git && cd vxdb
+git clone https://github.com/getmykhan/vxdb.git && cd vxdb
 
 # Rust
 cargo build --all

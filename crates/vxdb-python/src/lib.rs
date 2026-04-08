@@ -50,8 +50,8 @@ fn json_to_py(py: Python<'_>, val: &serde_json::Value) -> PyResult<PyObject> {
         }
         serde_json::Value::String(s) => Ok(s.to_object(py)),
         serde_json::Value::Array(arr) => {
-            let items: Vec<PyObject> = arr.iter().map(|v| json_to_py(py, v).unwrap()).collect();
-            Ok(PyList::new_bound(py, items).to_object(py))
+            let items: PyResult<Vec<PyObject>> = arr.iter().map(|v| json_to_py(py, v)).collect();
+            Ok(PyList::new_bound(py, items?).to_object(py))
         }
         serde_json::Value::Object(map) => {
             let dict = PyDict::new_bound(py);
@@ -90,19 +90,19 @@ fn vex_err(e: vxdb_core::VexError) -> PyErr {
     PyValueError::new_err(e.to_string())
 }
 
-fn results_to_py(py: Python<'_>, results: Vec<vxdb_core::types::SearchResult>) -> Vec<PyObject> {
+fn results_to_py(py: Python<'_>, results: Vec<vxdb_core::types::SearchResult>) -> PyResult<Vec<PyObject>> {
     results
         .into_iter()
         .map(|r| {
             let dict = PyDict::new_bound(py);
-            dict.set_item("id", &r.id).unwrap();
-            dict.set_item("score", r.score).unwrap();
+            dict.set_item("id", &r.id)?;
+            dict.set_item("score", r.score)?;
             let meta_dict = PyDict::new_bound(py);
             for (k, v) in &r.metadata {
-                meta_dict.set_item(k, json_to_py(py, v).unwrap()).unwrap();
+                meta_dict.set_item(k, json_to_py(py, v)?)?;
             }
-            dict.set_item("metadata", meta_dict).unwrap();
-            dict.to_object(py)
+            dict.set_item("metadata", meta_dict)?;
+            Ok(dict.to_object(py))
         })
         .collect()
 }
@@ -173,7 +173,7 @@ impl Collection {
                 .map_err(vex_err)?
         };
 
-        Ok(results_to_py(py, results))
+        results_to_py(py, results)
     }
 
     #[pyo3(signature = (vector, query, top_k = 10, alpha = 0.5))]
@@ -190,7 +190,7 @@ impl Collection {
             .with_collection(&self.name, |c| c.hybrid_query(&vector, query, top_k, alpha))
             .map_err(vex_err)?;
 
-        Ok(results_to_py(py, results))
+        results_to_py(py, results)
     }
 
     #[pyo3(signature = (query, top_k = 10))]
@@ -205,7 +205,7 @@ impl Collection {
             .with_collection(&self.name, |c| c.keyword_search(query, top_k))
             .map_err(vex_err)?;
 
-        Ok(results_to_py(py, results))
+        results_to_py(py, results)
     }
 
     fn delete(&self, ids: Vec<String>) -> PyResult<Vec<bool>> {

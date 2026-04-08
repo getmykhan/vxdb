@@ -5,10 +5,34 @@ build-backend = "maturin"
 [project]
 name = "vxdb"
 version = "0.1.0"
-description = "A lightweight, high-performance vector store with a Rust backend"
+description = "A lightweight, high-performance vector database with a Rust backend. Hybrid search, embedded + server modes, zero dependencies."
+readme = "README.md"
 requires-python = ">=3.9"
 license = "Apache-2.0"
+authors = [
+    { name = "Yusuf Khan", email = "yusuf@getmykhan.com" },
+]
+keywords = ["vector-database", "embeddings", "search", "rust", "hnsw", "bm25", "hybrid-search", "pyo3"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/getmykhan/vxdb"
+Repository = "https://github.com/getmykhan/vxdb"
+Issues = "https://github.com/getmykhan/vxdb/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
@@ -22,3 +46,13 @@ features = ["pyo3/extension-module"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
