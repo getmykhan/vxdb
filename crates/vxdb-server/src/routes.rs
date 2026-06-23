@@ -152,6 +152,8 @@ struct QueryResultItem {
     id: String,
     score: f32,
     metadata: HashMap<String, serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    document: Option<String>,
 }
 
 pub async fn query(
@@ -176,6 +178,7 @@ pub async fn query(
                     id: sr.id,
                     score: sr.score,
                     metadata: sr.metadata,
+                    document: sr.document,
                 })
                 .collect();
             Json(serde_json::json!({"results": items})).into_response()
@@ -209,6 +212,7 @@ pub async fn hybrid_query(
                     id: sr.id,
                     score: sr.score,
                     metadata: sr.metadata,
+                    document: sr.document,
                 })
                 .collect();
             Json(serde_json::json!({"results": items})).into_response()
@@ -237,6 +241,7 @@ pub async fn keyword_search(
                     id: sr.id,
                     score: sr.score,
                     metadata: sr.metadata,
+                    document: sr.document,
                 })
                 .collect();
             Json(serde_json::json!({"results": items})).into_response()

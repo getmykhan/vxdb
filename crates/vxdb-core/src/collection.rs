@@ -20,6 +20,9 @@ pub struct Collection {
     index: Box<dyn VectorIndex>,
     text_index: Bm25Index,
     storage: Option<PersistentStorage>,
+    /// Original document text, kept in memory ONLY in ephemeral mode (storage = None).
+    /// In persistent mode, documents are fetched lazily from SQLite for the top-k.
+    mem_documents: HashMap<String, String>,
 }
 
 impl Collection {
@@ -30,6 +33,7 @@ impl Collection {
             index,
             text_index: Bm25Index::new(),
             storage: None,
+            mem_documents: HashMap::new(),
         }
     }
 
@@ -46,6 +50,7 @@ impl Collection {
             index,
             text_index: Bm25Index::new(),
             storage: Some(storage),
+            mem_documents: HashMap::new(),
         })
     }
 
@@ -72,6 +77,7 @@ impl Collection {
             index,
             text_index,
             storage: Some(storage),
+            mem_documents: HashMap::new(),
         })
     }
 
@@ -106,6 +112,9 @@ impl Collection {
         }
         self.index.insert(id.clone(), vector, metadata)?;
         self.text_index.insert(&id, document);
+        if self.storage.is_none() {
+            self.mem_documents.insert(id, document.to_string());
+        }
         Ok(())
     }
 
@@ -160,12 +169,17 @@ impl Collection {
         for (((id, vec), meta), doc) in ids.into_iter().zip(vectors).zip(metadata).zip(documents) {
             self.index.insert(id.clone(), vec, meta)?;
             self.text_index.insert(&id, &doc);
+            if self.storage.is_none() {
+                self.mem_documents.insert(id, doc);
+            }
         }
         Ok(())
     }
 
     pub fn query(&self, vector: &[f32], top_k: usize) -> VexResult<Vec<SearchResult>> {
-        self.index.search(vector, top_k)
+        let mut results = self.index.search(vector, top_k)?;
+        self.attach_documents(&mut results)?;
+        Ok(results)
     }
 
     pub fn query_with_filter(
@@ -176,11 +190,12 @@ impl Collection {
     ) -> VexResult<Vec<SearchResult>> {
         let fetch_k = (top_k * 10).max(100);
         let candidates = self.index.search(vector, fetch_k)?;
-        let filtered: Vec<SearchResult> = candidates
+        let mut filtered: Vec<SearchResult> = candidates
             .into_iter()
             .filter(|r| filter.matches(&r.metadata))
             .take(top_k)
             .collect();
+        self.attach_documents(&mut filtered)?;
         Ok(filtered)
     }
 
@@ -204,15 +219,17 @@ impl Collection {
             .map(|r| (r.id, r.metadata))
             .collect();
 
-        let results = fused
+        let mut results: Vec<SearchResult> = fused
             .into_iter()
             .map(|(id, score)| SearchResult {
                 metadata: meta_map.get(&id).cloned().unwrap_or_default(),
                 id,
                 score,
+                document: None,
             })
             .collect();
 
+        self.attach_documents(&mut results)?;
         Ok(results)
     }
 
@@ -231,16 +248,40 @@ impl Collection {
             .map(|r| (r.id, r.metadata))
             .collect();
 
-        let out = results
+        let mut out: Vec<SearchResult> = results
             .into_iter()
             .map(|(id, score)| SearchResult {
                 metadata: meta_map.get(&id).cloned().unwrap_or_default(),
                 id,
                 score: score as f32,
+                document: None,
             })
             .collect();
 
+        self.attach_documents(&mut out)?;
         Ok(out)
+    }
+
+    /// Fetch document text for the given ids: from SQLite in persistent mode,
+    /// from the in-memory map in ephemeral mode. Missing ids are simply absent.
+    fn fetch_documents(&self, ids: &[String]) -> VexResult<HashMap<String, String>> {
+        match &self.storage {
+            Some(storage) => storage.get_documents(ids),
+            None => Ok(ids
+                .iter()
+                .filter_map(|id| self.mem_documents.get(id).map(|d| (id.clone(), d.clone())))
+                .collect()),
+        }
+    }
+
+    /// Attach document text to the (already top-k) results in place.
+    fn attach_documents(&self, results: &mut [SearchResult]) -> VexResult<()> {
+        let ids: Vec<String> = results.iter().map(|r| r.id.clone()).collect();
+        let docs = self.fetch_documents(&ids)?;
+        for r in results.iter_mut() {
+            r.document = docs.get(&r.id).cloned();
+        }
+        Ok(())
     }
 
     pub fn delete(&mut self, id: &str) -> VexResult<bool> {
@@ -248,6 +289,7 @@ impl Collection {
             storage.delete_entry(id)?;
         }
         self.text_index.remove(id);
+        self.mem_documents.remove(id);
         self.index.delete(id)
     }
 
@@ -1049,6 +1091,88 @@ mod tests {
                 .unwrap();
             assert_eq!(results[0].id, "a");
             assert_eq!(results[0].metadata["v"], 2);
+        }
+    }
+
+    // ---- Documents-in-results tests ----
+
+    #[test]
+    fn test_query_returns_document_in_memory() {
+        let db = make_db();
+        db.create_collection(sample_config("docs")).unwrap();
+        db.with_collection_mut("docs", |c| {
+            c.upsert_batch_with_docs(
+                vec!["a".into(), "b".into()],
+                vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0]],
+                vec![HashMap::new(), HashMap::new()],
+                vec!["the quick brown fox".into(), "lazy dog".into()],
+            )
+        })
+        .unwrap();
+
+        let results = db.with_collection("docs", |c| c.query(&[1.0, 0.0, 0.0], 1)).unwrap();
+        assert_eq!(results[0].id, "a");
+        assert_eq!(results[0].document.as_deref(), Some("the quick brown fox"));
+    }
+
+    #[test]
+    fn test_query_document_none_when_absent() {
+        let db = make_db();
+        db.create_collection(sample_config("docs")).unwrap();
+        db.with_collection_mut("docs", |c| {
+            c.upsert("a".into(), vec![1.0, 0.0, 0.0], HashMap::new())
+        })
+        .unwrap();
+        let results = db.with_collection("docs", |c| c.query(&[1.0, 0.0, 0.0], 1)).unwrap();
+        assert!(results[0].document.is_none());
+    }
+
+    #[test]
+    fn test_hybrid_and_keyword_return_documents() {
+        let db = make_db();
+        db.create_collection(sample_config("docs")).unwrap();
+        db.with_collection_mut("docs", |c| {
+            c.upsert_batch_with_docs(
+                vec!["ml".into(), "cook".into()],
+                vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0]],
+                vec![HashMap::new(), HashMap::new()],
+                vec!["machine learning basics".into(), "cooking pasta".into()],
+            )
+        })
+        .unwrap();
+
+        let kw = db.with_collection("docs", |c| c.keyword_search("machine learning", 5)).unwrap();
+        assert_eq!(kw[0].id, "ml");
+        assert_eq!(kw[0].document.as_deref(), Some("machine learning basics"));
+
+        let hy = db
+            .with_collection("docs", |c| c.hybrid_query(&[1.0, 0.0, 0.0], "machine learning", 5, 0.5))
+            .unwrap();
+        let ml = hy.iter().find(|r| r.id == "ml").unwrap();
+        assert_eq!(ml.document.as_deref(), Some("machine learning basics"));
+    }
+
+    #[test]
+    fn test_persistent_query_returns_document_after_restart() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let db_path = tmp.path().join("testdb");
+        {
+            let db = Database::open(&db_path).unwrap();
+            db.create_collection(sample_config("docs")).unwrap();
+            db.with_collection_mut("docs", |c| {
+                c.upsert_batch_with_docs(
+                    vec!["a".into()],
+                    vec![vec![1.0, 0.0, 0.0]],
+                    vec![HashMap::new()],
+                    vec!["persisted document text".into()],
+                )
+            })
+            .unwrap();
+        }
+        {
+            let db = Database::open(&db_path).unwrap();
+            let results = db.with_collection("docs", |c| c.query(&[1.0, 0.0, 0.0], 1)).unwrap();
+            assert_eq!(results[0].document.as_deref(), Some("persisted document text"));
         }
     }
 }

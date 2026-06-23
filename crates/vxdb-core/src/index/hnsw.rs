@@ -356,6 +356,7 @@ impl VectorIndex for HnswIndex {
                 id: self.nodes[c.idx].id.clone(),
                 score: c.distance,
                 metadata: self.nodes[c.idx].metadata.clone(),
+                document: None,
             })
             .collect();
 

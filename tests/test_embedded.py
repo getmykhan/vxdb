@@ -300,3 +300,24 @@ def test_hybrid_alpha_extremes():
     # alpha=0.0 (pure keyword): text_only should win
     results = coll.hybrid_query(vector=[1.0, 0.0, 0.0], query="quantum computing", top_k=2, alpha=0.0)
     assert results[0]["id"] == "text_only"
+
+
+def test_query_returns_document_in_memory():
+    db = vxdb.Database()
+    coll = db.create_collection("docs", dimension=3)
+    coll.upsert(ids=["a"], vectors=[[1.0, 0.0, 0.0]], documents=["machine learning basics"])
+    results = coll.query(vector=[1.0, 0.0, 0.0], top_k=1)
+    assert results[0]["document"] == "machine learning basics"
+
+
+def test_query_returns_document_after_restart(tmp_path):
+    path = str(tmp_path / "db")
+    db = vxdb.Database(path=path)
+    coll = db.create_collection("docs", dimension=3)
+    coll.upsert(ids=["a"], vectors=[[1.0, 0.0, 0.0]], documents=["persisted text"])
+    del coll, db
+
+    db2 = vxdb.Database(path=path)
+    coll2 = db2.get_collection("docs")
+    results = coll2.query(vector=[1.0, 0.0, 0.0], top_k=1)
+    assert results[0]["document"] == "persisted text"

@@ -78,6 +78,7 @@ impl VectorIndex for FlatIndex {
                 id: self.ids[idx].clone(),
                 score: dist,
                 metadata: self.metadata[idx].clone(),
+                document: None,
             })
             .collect();
 

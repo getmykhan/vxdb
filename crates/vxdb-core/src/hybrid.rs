@@ -246,9 +246,9 @@ mod tests {
     #[test]
     fn test_rrf_basic() {
         let vector_results = vec![
-            SearchResult { id: "a".into(), score: 0.1, metadata: HashMap::new() },
-            SearchResult { id: "b".into(), score: 0.2, metadata: HashMap::new() },
-            SearchResult { id: "c".into(), score: 0.3, metadata: HashMap::new() },
+            SearchResult { id: "a".into(), score: 0.1, metadata: HashMap::new(), document: None },
+            SearchResult { id: "b".into(), score: 0.2, metadata: HashMap::new(), document: None },
+            SearchResult { id: "c".into(), score: 0.3, metadata: HashMap::new(), document: None },
         ];
         let keyword_results = vec![
             ("b".to_string(), 5.0),
@@ -268,7 +268,7 @@ mod tests {
     #[test]
     fn test_rrf_alpha_weighting() {
         let vector_results = vec![
-            SearchResult { id: "vec_winner".into(), score: 0.01, metadata: HashMap::new() },
+            SearchResult { id: "vec_winner".into(), score: 0.01, metadata: HashMap::new(), document: None },
         ];
         let keyword_results = vec![
             ("kw_winner".to_string(), 10.0),

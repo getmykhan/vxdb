@@ -31,6 +31,8 @@ pub struct SearchResult {
     pub score: f32,
     #[serde(default)]
     pub metadata: Metadata,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,9 +100,9 @@ mod tests {
     #[test]
     fn test_search_result_ordering() {
         let mut results = vec![
-            SearchResult { id: "a".into(), score: 0.8, metadata: HashMap::new() },
-            SearchResult { id: "b".into(), score: 0.95, metadata: HashMap::new() },
-            SearchResult { id: "c".into(), score: 0.6, metadata: HashMap::new() },
+            SearchResult { id: "a".into(), score: 0.8, metadata: HashMap::new(), document: None },
+            SearchResult { id: "b".into(), score: 0.95, metadata: HashMap::new(), document: None },
+            SearchResult { id: "c".into(), score: 0.6, metadata: HashMap::new(), document: None },
         ];
         results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
         assert_eq!(results[0].id, "b");

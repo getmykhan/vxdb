@@ -1,5 +1,10 @@
 # vxdb
 
+[![PyPI](https://img.shields.io/pypi/v/vxdb)](https://pypi.org/project/vxdb/)
+[![CI](https://github.com/getmykhan/vxdb/actions/workflows/ci.yml/badge.svg)](https://github.com/getmykhan/vxdb/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/pypi/pyversions/vxdb)](https://pypi.org/project/vxdb/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+
 **The vector database that fits in your pocket.**
 
 Rust-powered. Python-native. One `pip install` away.
@@ -35,12 +40,6 @@ That's it. No Docker. No config files. No cloud account. No 500 MB of dependenci
 
 ## Why developers choose vxdb
 
-
-|     |
-| --- |
-|     |
-
-
 ### Stupid fast
 
 The entire hot path — distance computation, HNSW traversal, BM25 scoring, mmap I/O — is **pure Rust** with zero GIL contention. Your Python code calls directly into compiled native code via PyO3. No serialization overhead. No REST round-trips. No subprocess.
@@ -63,7 +62,7 @@ Other databases like Qdrant, Milvus, and Zvec support hybrid search too — but 
 
 Many databases now offer an "embedded" mode — but the implementations vary widely. Qdrant's local mode is a Python reimplementation (not their Rust engine). Weaviate embedded downloads a Go binary and runs it as a subprocess. Milvus Lite works but is limited to Linux/macOS and recommended for <1M vectors.
 
-vxdb's embedded mode is the **real Rust engine** compiled directly into a Python extension via PyO3. Zero-copy. No subprocess. No network. And the same engine powers the standalone REST server — start in a notebook, scale to multi-client HTTP when you're ready. No rewrite.
+vxdb's embedded mode is the **real Rust engine** compiled directly into a Python extension via PyO3. No serialization. No subprocess. No network. And the same engine powers the standalone REST server — start in a notebook, scale to multi-client HTTP when you're ready. No rewrite.
 
 ---
 
@@ -76,9 +75,9 @@ vxdb's embedded mode is the **real Rust engine** compiled directly into a Python
                                   │                   │
                     ┌─────────────▼──────┐  ┌────────▼────────────┐
                     │  Embedded (PyO3)   │  │  Server (REST API)  │
-                    │  Zero-copy, in-    │  │  Axum, async,       │
-                    │  process, <1μs     │  │  multi-client       │
-                    │  call overhead     │  │                     │
+                    │  In-process,       │  │  Axum, async,       │
+                    │  no serialize,     │  │  multi-client       │
+                    │  <1µs overhead     │  │                     │
                     └─────────────┬──────┘  └────────┬────────────┘
                                   │                   │
                     ┌─────────────▼───────────────────▼───────────────┐
@@ -156,7 +155,7 @@ results = collection.hybrid_query(
 results = collection.keyword_search(query="machine learning", top_k=5)
 ```
 
-Every result returns `{"id", "score", "metadata"}`.
+Every result returns `{"id", "score", "metadata", "document"}`.
 
 ---
 
@@ -183,10 +182,10 @@ vxdb stores **pre-computed vectors** — bring any embedding model you want. We 
 
 | Provider                     | Install                             | API Key?   | Notebook                                                                       |
 | ---------------------------- | ----------------------------------- | ---------- | ------------------------------------------------------------------------------ |
-| **OpenAI**                   | `pip install openai`                | Yes        | `[examples/openai_embeddings.ipynb](examples/openai_embeddings.ipynb)`         |
-| **Sentence Transformers**    | `pip install sentence-transformers` | No (local) | `[examples/sentence_transformers.ipynb](examples/sentence_transformers.ipynb)` |
-| **LangChain** (any provider) | `pip install langchain-openai`      | Depends    | `[examples/langchain_integration.ipynb](examples/langchain_integration.ipynb)` |
-| **Cohere**                   | `pip install cohere`                | Yes        | `[examples/cohere_embeddings.ipynb](examples/cohere_embeddings.ipynb)`         |
+| **OpenAI**                   | `pip install openai`                | Yes        | [examples/openai_embeddings.ipynb](examples/openai_embeddings.ipynb)         |
+| **Sentence Transformers**    | `pip install sentence-transformers` | No (local) | [examples/sentence_transformers.ipynb](examples/sentence_transformers.ipynb) |
+| **LangChain** (any provider) | `pip install langchain-openai`      | Depends    | [examples/langchain_integration.ipynb](examples/langchain_integration.ipynb) |
+| **Cohere**                   | `pip install cohere`                | Yes        | [examples/cohere_embeddings.ipynb](examples/cohere_embeddings.ipynb)         |
 | **Ollama** (local LLMs)      | `pip install ollama`                | No (local) | —                                                                              |
 
 
@@ -245,7 +244,7 @@ curl -X POST localhost:8080/collections/docs/query \
 
 ```bash
 docker build -t vxdb .
-docker run -p 8080:8080 vxdb    # ~10 MB image
+docker run -p 8080:8080 vxdb    # ~145 MB Debian-based image
 ```
 
 ---
@@ -260,7 +259,7 @@ Most vector databases give you vector search OR keyword search. vxdb gives you b
 2. **At query time** — vector search and BM25 run in parallel, then Reciprocal Rank Fusion merges both ranked lists
 3. **You control the blend** — `alpha=1.0` (pure vector) → `alpha=0.5` (balanced) → `alpha=0.0` (pure keyword)
 
-**When to use it:** Specific product names. Error codes. Proper nouns. Anything where exact terms matter alongside semantic meaning. See `[examples/hybrid_search.ipynb](examples/hybrid_search.ipynb)` for a deep dive with side-by-side comparisons.
+**When to use it:** Specific product names. Error codes. Proper nouns. Anything where exact terms matter alongside semantic meaning. See [examples/hybrid_search.ipynb](examples/hybrid_search.ipynb) for a deep dive with side-by-side comparisons.
 
 ```python
 results = collection.hybrid_query(
@@ -293,7 +292,7 @@ results = collection.hybrid_query(
 | **Persistence**                  | **mmap + SQLite + WAL**     | Custom engine               | SQLite                  | RocksDB                   | Cloud         | RocksDB                 | LSM                         | Manual        |
 | **Crash recovery**               | **WAL**                     | Yes                         | Yes (v1.0)              | Yes                       | Yes           | Yes                     | Yes                         | No            |
 | **Quantization**                 | No (planned)                | **int8, RabitQ**            | No                      | Scalar/PQ                 | Yes           | Yes                     | PQ/BQ                       | PQ/SQ         |
-| **Docker image**                 | **~10 MB**                  | N/A (no server)             | ~200 MB+                | ~100 MB                   | No            | ~1 GB+                  | ~300 MB+                    | No            |
+| **Docker image**                 | ~145 MB                     | N/A (no server)             | ~200 MB+                | ~100 MB                   | No            | ~1 GB+                  | ~300 MB+                    | No            |
 | **Runs offline**                 | **Yes**                     | Yes                         | Yes                     | Yes                       | No            | Yes                     | Yes                         | Yes           |
 | **License**                      | **Apache 2.0**              | Apache 2.0                  | Apache 2.0              | Apache 2.0                | Proprietary   | Apache 2.0              | BSD-3                       | MIT           |
 
@@ -358,12 +357,12 @@ Interactive Jupyter notebooks with step-by-step walkthroughs:
 
 | Notebook                                                              | What you'll build                      |
 | --------------------------------------------------------------------- | -------------------------------------- |
-| `[quickstart.ipynb](examples/quickstart.ipynb)`                       | Every feature in 5 min (no API keys)   |
-| `[openai_embeddings.ipynb](examples/openai_embeddings.ipynb)`         | Semantic search with OpenAI embeddings |
-| `[sentence_transformers.ipynb](examples/sentence_transformers.ipynb)` | Free, local embeddings (no API key)    |
-| `[langchain_integration.ipynb](examples/langchain_integration.ipynb)` | LangChain + RAG pipeline               |
-| `[cohere_embeddings.ipynb](examples/cohere_embeddings.ipynb)`         | Multilingual search with Cohere        |
-| `[hybrid_search.ipynb](examples/hybrid_search.ipynb)`                 | Deep dive: vector vs keyword vs hybrid |
+| [quickstart.ipynb](examples/quickstart.ipynb)                       | Every feature in 5 min (no API keys)   |
+| [openai_embeddings.ipynb](examples/openai_embeddings.ipynb)         | Semantic search with OpenAI embeddings |
+| [sentence_transformers.ipynb](examples/sentence_transformers.ipynb) | Free, local embeddings (no API key)    |
+| [langchain_integration.ipynb](examples/langchain_integration.ipynb) | LangChain + RAG pipeline               |
+| [cohere_embeddings.ipynb](examples/cohere_embeddings.ipynb)         | Multilingual search with Cohere        |
+| [hybrid_search.ipynb](examples/hybrid_search.ipynb)                 | Deep dive: vector vs keyword vs hybrid |
 
 
 ---

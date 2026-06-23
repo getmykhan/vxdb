@@ -416,6 +416,9 @@ mod tests {
         let results = json["results"].as_array().unwrap();
         assert_eq!(results.len(), 3);
 
+        // every hybrid result should carry its document text
+        assert!(results.iter().all(|r| r["document"].is_string()));
+
         // "both" should rank well (top 2) because it matches both vector and keyword
         let both_idx = results.iter().position(|r| r["id"] == "both").unwrap();
         assert!(both_idx <= 1, "expected 'both' in top 2, got position {}", both_idx);

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -146,6 +147,37 @@ impl PersistentStorage {
         Ok(entries)
     }
 
+    /// Fetch document text for the given ids. Rows with a NULL document, and
+    /// ids that are absent, are omitted from the returned map.
+    pub fn get_documents(&self, ids: &[String]) -> VexResult<HashMap<String, String>> {
+        if ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let conn = self.conn.lock().map_err(|e| VexError::Internal(e.to_string()))?;
+        let placeholders = vec!["?"; ids.len()].join(",");
+        let sql = format!(
+            "SELECT id, document FROM entries WHERE id IN ({}) AND document IS NOT NULL",
+            placeholders
+        );
+        let mut stmt = conn
+            .prepare(&sql)
+            .map_err(|e| VexError::Internal(e.to_string()))?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(ids.iter()), |row| {
+                let id: String = row.get(0)?;
+                let document: String = row.get(1)?;
+                Ok((id, document))
+            })
+            .map_err(|e| VexError::Internal(e.to_string()))?;
+
+        let mut map = HashMap::new();
+        for row in rows {
+            let (id, document) = row.map_err(|e| VexError::Internal(e.to_string()))?;
+            map.insert(id, document);
+        }
+        Ok(map)
+    }
+
     pub fn path(&self) -> &Path {
         &self.base_path
     }
@@ -247,5 +279,25 @@ mod tests {
 
         let entries = store.load_all().unwrap();
         assert_eq!(entries.len(), 2);
+    }
+
+    #[test]
+    fn test_get_documents_batch() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("coll");
+
+        let mut store = PersistentStorage::create(&path, 2).unwrap();
+        store.save_entry("a", &[1.0, 2.0], &HashMap::new(), Some("doc a")).unwrap();
+        store.save_entry("b", &[3.0, 4.0], &HashMap::new(), None).unwrap();
+        store.save_entry("c", &[5.0, 6.0], &HashMap::new(), Some("doc c")).unwrap();
+
+        let docs = store
+            .get_documents(&["a".to_string(), "b".to_string(), "missing".to_string()])
+            .unwrap();
+
+        assert_eq!(docs.get("a").map(String::as_str), Some("doc a"));
+        assert!(!docs.contains_key("b")); // NULL document omitted
+        assert!(!docs.contains_key("missing")); // absent id omitted
+        assert_eq!(docs.len(), 1);
     }
 }

@@ -104,6 +104,7 @@ fn results_to_py(py: Python<'_>, results: Vec<vxdb_core::types::SearchResult>) -
                 meta_dict.set_item(k, json_to_py(py, v)?)?;
             }
             dict.set_item("metadata", meta_dict)?;
+            dict.set_item("document", r.document)?;
             Ok(dict.to_object(py))
         })
         .collect()
