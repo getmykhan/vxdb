@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standalone HTTP server (Axum) with REST API
 - Python HTTP client for remote server access
 - Pluggable embedding interface (`EmbeddingFunction` base class)
-- Dockerfile for server deployment (~10 MB image)
+- Dockerfile for server deployment (~145 MB Debian-based image)
 - Jupyter notebook examples for OpenAI, Sentence Transformers, LangChain, Cohere, and hybrid search
 
 ### Supported Platforms
