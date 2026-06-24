@@ -68,39 +68,7 @@ vxdb's embedded mode is the **real Rust engine** compiled directly into a Python
 
 ## The full picture
 
-```
-                    ┌─────────────────────────────────────────────────┐
-                    │               Your Python Code                  │
-                    └─────────────┬───────────────────┬───────────────┘
-                                  │                   │
-                    ┌─────────────▼──────┐  ┌────────▼────────────┐
-                    │  Embedded (PyO3)   │  │  Server (REST API)  │
-                    │  In-process,       │  │  Axum, async,       │
-                    │  no serialize,     │  │  multi-client       │
-                    │  <1µs overhead     │  │                     │
-                    └─────────────┬──────┘  └────────┬────────────┘
-                                  │                   │
-                    ┌─────────────▼───────────────────▼───────────────┐
-                    │              Rust Core Engine                    │
-                    │                                                  │
-                    │  ┌──────────┐ ┌──────────┐ ┌─────────────────┐  │
-                    │  │   HNSW   │ │   Flat   │ │  BM25 Keyword   │  │
-                    │  │  Index   │ │  Index   │ │     Index       │  │
-                    │  └──────────┘ └──────────┘ └─────────────────┘  │
-                    │  ┌──────────────────┐ ┌──────────────────────┐  │
-                    │  │ Distance Metrics  │ │  Metadata Filtering  │  │
-                    │  │ cosine/L2/dot     │ │  10 operators, SQL   │  │
-                    │  └──────────────────┘ └──────────────────────┘  │
-                    │  ┌──────────────────────────────────────────┐   │
-                    │  │   Hybrid Search (Reciprocal Rank Fusion)  │   │
-                    │  └──────────────────────────────────────────┘   │
-                    └─────────────────────┬───────────────────────────┘
-                                          │
-                    ┌─────────────────────▼───────────────────────────┐
-                    │                  Storage                        │
-                    │  mmap vectors │ SQLite metadata │ Write-Ahead Log│
-                    └─────────────────────────────────────────────────┘
-```
+![vxdb architecture](docs/vxdb-architecture.png)
 
 ---
 

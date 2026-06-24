@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 780" width="1100" height="780">
+  <defs>
+    <marker id="arrowA" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrowB" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrowC" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrowE" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrowF" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#9ca3af"/>
+    </marker>
+    <marker id="arrowG" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#9ca3af"/>
+    </marker>
+    <marker id="arrowH" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#d1d5db"/>
+    </marker>
+    <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', 'Microsoft JhengHei', 'SimHei', sans-serif; }
+    .title { font-size: 26px; font-weight: 700; fill: #111827; }
+    .subtitle { font-size: 14px; font-weight: 500; fill: #9ca3af; }
+    .section { font-size: 13px; font-weight: 700; fill: #9ca3af; letter-spacing: 1.4px; }
+    .section-sub { font-size: 12px; font-weight: 500; fill: #d1d5db; }
+    .node-title { font-size: 18px; font-weight: 700; fill: #111827; }
+    .node-sub { font-size: 12px; font-weight: 500; fill: #374151; }
+    .node-type { font-size: 11px; font-weight: 700; fill: #9ca3af; letter-spacing: 0.08em; }
+    .arrow-label { font-size: 12px; font-weight: 600; fill: #6b7280; }
+    .legend { font-size: 12px; font-weight: 500; fill: #6b7280; }
+    .footnote { font-size: 12px; font-weight: 500; fill: #9ca3af; }
+    </style>
+  </defs>
+  <rect width="1100.0" height="780.0" fill="#ffffff"/>
+  <text x="550.0" y="56" text-anchor="middle" class="title">vxdb Architecture</text>
+  <text x="550.0" y="82" text-anchor="middle" class="subtitle">The vector database that fits in your pocket — Rust core, Python-native</text>
+  <rect x="40.0" y="104.0" width="1020.0" height="70.0" rx="4.0" fill="none" stroke="#e5e7eb" stroke-width="1.4"/>
+  <text x="58.0" y="128.0" class="section">YOUR APPLICATION</text>
+  <rect x="40.0" y="222.0" width="1020.0" height="104.0" rx="4.0" fill="none" stroke="#e5e7eb" stroke-width="1.4"/>
+  <text x="58.0" y="246.0" class="section">ACCESS MODES</text>
+  <rect x="40.0" y="374.0" width="1020.0" height="212.0" rx="4.0" fill="none" stroke="#e5e7eb" stroke-width="1.4"/>
+  <text x="58.0" y="398.0" class="section">RUST CORE ENGINE</text>
+  <text x="58.0" y="418.0" class="section-sub">Pure Rust hot path · zero GIL contention</text>
+  <rect x="40.0" y="622.0" width="1020.0" height="120.0" rx="4.0" fill="none" stroke="#e5e7eb" stroke-width="1.4"/>
+  <text x="58.0" y="646.0" class="section">PERSISTENT STORAGE</text>
+  <path d="M 550.0,166.0 L 550.0,186.4 L 330.0,186.4 L 330.0,256.0" fill="none" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arrowA)"/>
+  <path d="M 550.0,166.0 L 550.0,186.4 L 770.0,186.4 L 770.0,256.0" fill="none" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arrowA)"/>
+  <path d="M 330.0,318.0 L 330.0,374.0" fill="none" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arrowA)"/>
+  <path d="M 770.0,318.0 L 770.0,374.0" fill="none" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arrowA)"/>
+  <path d="M 560.0,586.0 L 560.0,622.0" fill="none" stroke="#9ca3af" stroke-width="1.8" marker-end="url(#arrowF)" stroke-dasharray="6,4"/>
+  <rect x="410.0" y="120.0" width="280.0" height="46.0" rx="4.0" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.8"/>
+  <text x="550.0" y="143.0" text-anchor="middle" class="node-title">Your Python Code</text>
+  <rect x="150.0" y="256.0" width="360.0" height="62.0" rx="4.0" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.8"/>
+  <text x="330.0" y="287.0" text-anchor="middle" class="node-title">Embedded (PyO3)</text>
+  <text x="330.0" y="309.0" text-anchor="middle" class="node-sub">in-process · no serialize · &lt;1µs overhead</text>
+  <rect x="590.0" y="256.0" width="360.0" height="62.0" rx="4.0" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.8"/>
+  <text x="770.0" y="287.0" text-anchor="middle" class="node-title">Server (REST API)</text>
+  <text x="770.0" y="309.0" text-anchor="middle" class="node-sub">Axum · async · multi-client HTTP</text>
+  <rect x="80.0" y="430.0" width="280.0" height="58.0" rx="4.0" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.8"/>
+  <text x="220.0" y="448.0" text-anchor="middle" class="node-type">APPROXIMATE ANN</text>
+  <text x="220.0" y="465.0" text-anchor="middle" class="node-title">HNSW Index</text>
+  <rect x="410.0" y="430.0" width="280.0" height="58.0" rx="4.0" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.8"/>
+  <text x="550.0" y="448.0" text-anchor="middle" class="node-type">EXACT SEARCH</text>
+  <text x="550.0" y="465.0" text-anchor="middle" class="node-title">Flat Index</text>
+  <rect x="740.0" y="430.0" width="280.0" height="58.0" rx="4.0" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.8"/>
+  <text x="880.0" y="448.0" text-anchor="middle" class="node-type">FULL-TEXT</text>
+  <text x="880.0" y="465.0" text-anchor="middle" class="node-title">BM25 Keyword Index</text>
+  <rect x="80.0" y="508.0" width="280.0" height="58.0" rx="4.0" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.8"/>
+  <text x="220.0" y="526.0" text-anchor="middle" class="node-type">COSINE · L2 · DOT</text>
+  <text x="220.0" y="543.0" text-anchor="middle" class="node-title">Distance Metrics</text>
+  <rect x="410.0" y="508.0" width="280.0" height="58.0" rx="4.0" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.8"/>
+  <text x="550.0" y="526.0" text-anchor="middle" class="node-type">RANK FUSION (RRF)</text>
+  <text x="550.0" y="543.0" text-anchor="middle" class="node-title">Hybrid Search</text>
+  <rect x="740.0" y="508.0" width="280.0" height="58.0" rx="4.0" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.8"/>
+  <text x="880.0" y="526.0" text-anchor="middle" class="node-type">10 OPERATORS</text>
+  <text x="880.0" y="543.0" text-anchor="middle" class="node-title">Metadata Filtering</text>
+  <ellipse cx="325.0" cy="654.5" rx="47.5" ry="10.5" fill="#f9fafb" stroke="#9ca3af" stroke-width="2.2"/>
+  <rect x="230.0" y="654.5" width="190.0" height="63.0" fill="#f9fafb" stroke="#9ca3af" stroke-width="2.2"/>
+  <ellipse cx="325.0" cy="717.5" rx="47.5" ry="10.5" fill="#f9fafb" stroke="#9ca3af" stroke-width="2.2"/>
+  <ellipse cx="325.0" cy="675.92" rx="47.5" ry="10.5" fill="none" stroke="#9ca3af" stroke-opacity="0.45" stroke-width="1.2"/>
+  <ellipse cx="325.0" cy="694.4" rx="47.5" ry="10.5" fill="none" stroke="#9ca3af" stroke-opacity="0.25" stroke-width="1.2"/>
+  <text x="325.0" y="680.0" text-anchor="middle" class="node-title">mmap vectors</text>
+  <ellipse cx="560.0" cy="654.5" rx="47.5" ry="10.5" fill="#f9fafb" stroke="#9ca3af" stroke-width="2.2"/>
+  <rect x="465.0" y="654.5" width="190.0" height="63.0" fill="#f9fafb" stroke="#9ca3af" stroke-width="2.2"/>
+  <ellipse cx="560.0" cy="717.5" rx="47.5" ry="10.5" fill="#f9fafb" stroke="#9ca3af" stroke-width="2.2"/>
+  <ellipse cx="560.0" cy="675.92" rx="47.5" ry="10.5" fill="none" stroke="#9ca3af" stroke-opacity="0.45" stroke-width="1.2"/>
+  <ellipse cx="560.0" cy="694.4" rx="47.5" ry="10.5" fill="none" stroke="#9ca3af" stroke-opacity="0.25" stroke-width="1.2"/>
+  <text x="560.0" y="680.0" text-anchor="middle" class="node-title">SQLite</text>
+  <text x="560.0" y="704.0" text-anchor="middle" class="node-sub">metadata</text>
+  <path d="M 705.0 648.0 L 873.28 648.0 L 890.0 664.72 L 890.0 724.0 L 705.0 724.0 Z" fill="#f9fafb" stroke="#9ca3af" stroke-width="2.0"/>
+  <path d="M 873.28 648.0 L 873.28 664.72 L 890.0 664.72" fill="none" stroke="#9ca3af" stroke-width="2.0"/>
+  <line x1="723.0" y1="674.0" x2="862.0" y2="674.0" stroke="#d1d5db" stroke-width="1.2"/>
+  <line x1="723.0" y1="688.0" x2="862.0" y2="688.0" stroke="#d1d5db" stroke-width="1.2"/>
+  <line x1="723.0" y1="702.0" x2="862.0" y2="702.0" stroke="#d1d5db" stroke-width="1.2"/>
+  <line x1="723.0" y1="716.0" x2="862.0" y2="716.0" stroke="#d1d5db" stroke-width="1.2"/>
+  <text x="797.5" y="750.0" text-anchor="middle" class="node-title">Write-Ahead Log</text>
+  <text x="797.5" y="768.0" text-anchor="middle" class="node-sub">crash recovery</text>
+  <rect x="394.5" y="184.4" width="91" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
+  <text x="440.0" y="198.4" text-anchor="middle" class="arrow-label">import vxdb</text>
+  <rect x="614.5" y="184.4" width="91" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
+  <text x="660.0" y="198.4" text-anchor="middle" class="arrow-label">HTTP client</text>
+  <rect x="252.5" y="332.0" width="119" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
+  <text x="312.0" y="346.0" text-anchor="middle" class="arrow-label">FFI · zero-copy</text>
+  <rect x="713.5" y="332.0" width="77" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
+  <text x="752.0" y="346.0" text-anchor="middle" class="arrow-label">async req</text>
+  <rect x="510.5" y="590.0" width="63" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
+  <text x="542.0" y="604.0" text-anchor="middle" class="arrow-label">persist</text>
+  <text x="42.0" y="766.0" class="footnote">Single native wheel under 5 MB · zero Python dependencies · starts in &lt;10 ms</text>
+</svg>
