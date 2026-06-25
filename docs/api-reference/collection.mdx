@@ -36,12 +36,15 @@ collection.upsert(
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `ids` | `list[str]` | Yes | Unique identifiers |
-| `vectors` | `list[list[float]]` | Yes | Embedding vectors (must match collection dimension) |
+| `vectors` | `list[list[float]]` or 2-D `float32` NumPy array | No\* | Embedding vectors (must match collection dimension). NumPy/torch arrays are read zero-copy via the buffer protocol. |
 | `metadata` | `list[dict]` | No | Key-value metadata for filtering |
 | `documents` | `list[str]` | No | Raw text for hybrid/keyword search |
 
 <Note>
-Pass `documents=` to enable `hybrid_query()` and `keyword_search()`.
+`*` `vectors` is required **unless** the collection was created with an
+`embedding_function`. In that case you can omit `vectors` and pass `documents`,
+and the vectors are computed for you. Pass `documents=` to enable
+`hybrid_query()` and `keyword_search()`.
 </Note>
 
 ---
@@ -62,9 +65,15 @@ results = collection.query(
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `vector` | `list[float]` | Yes | — | Query vector |
+| `vector` | `list[float]` | No\* | — | Query vector |
+| `query_text` | `str` | No\* | `None` | Query text to embed (requires an `embedding_function` on the collection) |
 | `top_k` | `int` | No | `10` | Number of results |
 | `filter` | `dict` | No | `None` | Metadata filter (see [operators](/core-concepts/metadata-filtering)) |
+
+<Note>
+`*` Provide either `vector` or `query_text`. `query_text` embeds the text with
+the collection's `embedding_function`.
+</Note>
 
 **Returns:** `list[dict]` — each dict has `id`, `score`, and `metadata`.
 

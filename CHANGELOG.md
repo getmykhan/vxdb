@@ -5,6 +5,30 @@ All notable changes to vxdb will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-24
+
+### Added
+
+- Automatic embedding: create a collection with an `embedding_function` and pass
+  raw `documents` to `upsert` / text via `query_text=` (and `hybrid_query`) — the
+  vectors are computed for you. The embedding function may be an
+  `EmbeddingFunction` instance or any callable `list[str] -> list[list[float]]`,
+  and the collection dimension is inferred from it when omitted. Implemented as a
+  thin Python wrapper over the native engine — no new dependencies, and fully
+  backward compatible (passing `vectors`/`vector` behaves exactly as before).
+
+### Fixed
+
+- `upsert` no longer panics on a zero-width (`(n, 0)`) NumPy array; it now raises
+  a clean `ValueError`.
+
+### Changed
+
+- CI now installs NumPy and runs the full `tests/` suite (previously only
+  `test_embedded.py` ran, and the NumPy buffer-ingest path was untested).
+- Added direct unit tests for the SIMD distance kernels across a range of
+  dimensions (the chunked path was only covered indirectly before).
+
 ## [0.2.1] - 2026-06-24
 
 ### Fixed

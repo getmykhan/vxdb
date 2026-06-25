@@ -75,19 +75,40 @@ class CustomAPIEmbedding(EmbeddingFunction):
 
 ## Using with vxdb
 
-The `EmbeddingFunction` is a convenience pattern — you call `embed()` yourself and pass the resulting vectors to vxdb:
+### Automatic embedding (recommended)
+
+Attach the embedder to the collection and work in **text** — vxdb embeds your
+`documents` and `query_text` for you. The dimension is inferred from the embedder:
 
 ```python
-embedder = OpenAIEmbedding()
+from vxdb import Database
 
-texts = ["hello world", "vector databases are fast"]
-vectors = embedder.embed(texts)
+db = Database()
+collection = db.create_collection("docs", embedding_function=OpenAIEmbedding())
 
 collection.upsert(
     ids=["a", "b"],
-    vectors=vectors,
-    documents=texts,
+    documents=["hello world", "vector databases are fast"],
 )
+
+results = collection.query(query_text="search query", top_k=5)
+```
+
+`embedding_function` accepts an `EmbeddingFunction` subclass or any callable
+`list[str] -> list[list[float]]`. vxdb itself never imports or requires your
+model library.
+
+### Manual embedding
+
+You can also call `embed()` yourself and pass the vectors explicitly — this works
+with or without an `embedding_function`, and explicit vectors always take
+precedence:
+
+```python
+embedder = OpenAIEmbedding()
+texts = ["hello world", "vector databases are fast"]
+
+collection.upsert(ids=["a", "b"], vectors=embedder.embed(texts), documents=texts)
 
 query_vec = embedder.embed(["search query"])[0]
 results = collection.query(vector=query_vec, top_k=5)

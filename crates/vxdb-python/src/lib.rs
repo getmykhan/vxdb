@@ -122,7 +122,9 @@ fn results_to_py(py: Python<'_>, results: Vec<vxdb_core::types::SearchResult>) -
 /// extracting a `List[List[float]]`.
 fn extract_vectors(vectors: &Bound<'_, PyAny>) -> PyResult<Vec<Vec<f32>>> {
     if let Ok(buf) = PyBuffer::<f32>::get_bound(vectors) {
-        if buf.dimensions() == 2 && buf.is_c_contiguous() {
+        // `dim > 0` guards `chunks(0)`, which panics. A zero-width buffer falls
+        // through to the list path and yields a clean dimension/empty error.
+        if buf.dimensions() == 2 && buf.is_c_contiguous() && buf.shape()[1] > 0 {
             let dim = buf.shape()[1];
             let flat = buf.to_vec(vectors.py())?;
             return Ok(flat.chunks(dim).map(<[f32]>::to_vec).collect());

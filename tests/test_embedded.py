@@ -348,3 +348,33 @@ def test_query_returns_document_after_restart(tmp_path):
     coll2 = db2.get_collection("docs")
     results = coll2.query(vector=[1.0, 0.0, 0.0], top_k=1)
     assert results[0]["document"] == "persisted text"
+
+
+def test_numpy_float32_ingest_matches_lists():
+    np = pytest.importorskip("numpy")
+    db = vxdb.Database()
+    coll = db.create_collection("docs", dimension=3, metric="l2")
+    vecs = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float32)
+    coll.upsert(ids=["a", "b", "c"], vectors=vecs)
+    assert coll.count() == 3
+    assert coll.query(vector=[0.0, 1.0, 0.0], top_k=1)[0]["id"] == "b"
+
+
+def test_numpy_float64_ingest_fallback():
+    np = pytest.importorskip("numpy")
+    db = vxdb.Database()
+    coll = db.create_collection("docs", dimension=3, metric="l2")
+    # float64 is not the f32 buffer fast-path; it must still work via fallback.
+    vecs = np.array([[1, 0, 0], [0, 0, 1]], dtype=np.float64)
+    coll.upsert(ids=["a", "b"], vectors=vecs)
+    assert coll.query(vector=[0.0, 0.0, 1.0], top_k=1)[0]["id"] == "b"
+
+
+def test_numpy_zero_width_raises_cleanly():
+    np = pytest.importorskip("numpy")
+    db = vxdb.Database()
+    coll = db.create_collection("docs", dimension=3)
+    # A (n, 0) array must raise a clean error, not crash the interpreter
+    # (this used to be a Rust panic in the buffer ingest path).
+    with pytest.raises(ValueError):
+        coll.upsert(ids=["a"], vectors=np.zeros((1, 0), dtype=np.float32))

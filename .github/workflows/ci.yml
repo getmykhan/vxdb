@@ -37,11 +37,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Build and install wheel
         run: |
-          pip install maturin pytest
+          pip install maturin pytest numpy
           maturin build --out dist
           pip install dist/*.whl
       - name: Run tests
-        run: pytest tests/test_embedded.py -v
+        run: pytest tests/ -v
 
   lint:
     name: Python lint

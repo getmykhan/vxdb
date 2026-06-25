@@ -42,6 +42,30 @@ impl DistanceMetric for EuclideanDistance {
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_matches_naive_across_dims() {
+        // Exercises the multi-accumulator/chunked path at dims around and well
+        // past the 8-wide block (the small-vector tests only hit the remainder).
+        use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
+        let mut rng = StdRng::seed_from_u64(7);
+        for dim in [1usize, 7, 8, 9, 16, 100, 384, 769] {
+            let a: Vec<f32> = (0..dim).map(|_| rng.gen::<f32>()).collect();
+            let b: Vec<f32> = (0..dim).map(|_| rng.gen::<f32>()).collect();
+            let got = euclidean(&a, &b);
+            let naive = a
+                .iter()
+                .zip(&b)
+                .map(|(x, y)| (x - y) * (x - y))
+                .sum::<f32>()
+                .sqrt();
+            assert!(
+                (got - naive).abs() <= 1e-3 * naive.max(1.0),
+                "dim={dim}: {got} vs naive {naive}"
+            );
+        }
+    }
+
     const EPS: f32 = 1e-6;
 
     #[test]

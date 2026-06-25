@@ -157,15 +157,26 @@ vxdb stores **pre-computed vectors** — bring any embedding model you want. We 
 | **Ollama** (local LLMs)      | `pip install ollama`                | No (local) | —                                                                              |
 
 
-Or use the pluggable interface:
+Or let vxdb embed for you. Attach an `embedding_function` to a collection and
+work in **text** — pass `documents` to `upsert` and `query_text` to `query`:
 
 ```python
-from vxdb.embedding import EmbeddingFunction
+from vxdb import Database, EmbeddingFunction
 
 class MyEmbedder(EmbeddingFunction):
     def embed(self, texts: list[str]) -> list[list[float]]:
         return your_model.encode(texts)
+
+db = Database()
+docs = db.create_collection("docs", embedding_function=MyEmbedder())  # dimension inferred
+
+docs.upsert(ids=["a", "b"], documents=["how to train a model", "best pasta recipe"])
+docs.query(query_text="machine learning", top_k=5)
 ```
+
+The `embedding_function` can be an `EmbeddingFunction` subclass or any callable
+`list[str] -> list[list[float]]`. Passing `vectors`/`vector` explicitly always
+works and bypasses embedding — vxdb never requires or imports your model library.
 
 ---
 

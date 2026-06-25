@@ -2,8 +2,8 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
-from vxdb._vxdb import Collection, Database
 from vxdb.client import Client
+from vxdb.embedded import Collection, Database
 from vxdb.embedding import EmbeddingFunction
 
 __all__ = ["Database", "Collection", "Client", "EmbeddingFunction"]

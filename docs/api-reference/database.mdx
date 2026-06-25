@@ -54,9 +54,15 @@ collection = db.create_collection(
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `name` | `str` | Yes | — | Unique collection name |
-| `dimension` | `int` | Yes | — | Number of floats per vector |
+| `dimension` | `int` | No\* | — | Number of floats per vector |
 | `metric` | `str` | No | `"cosine"` | Distance metric: `"cosine"`, `"euclidean"`, `"dot"` |
 | `index` | `str` | No | `"flat"` | Index type: `"flat"` (exact), `"hnsw"` (approximate) |
+| `embedding_function` | `EmbeddingFunction` or callable | No | `None` | If set, `upsert`/`query` accept raw text and embed it for you |
+
+<Note>
+`*` `dimension` is required **unless** you pass an `embedding_function`, in which
+case the dimension is inferred from it.
+</Note>
 
 **Returns:** `Collection`
 

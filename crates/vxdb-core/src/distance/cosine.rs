@@ -47,6 +47,26 @@ impl DistanceMetric for CosineDistance {
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_matches_naive_across_dims() {
+        use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
+        let mut rng = StdRng::seed_from_u64(11);
+        for dim in [1usize, 7, 8, 9, 16, 100, 384, 769] {
+            let a: Vec<f32> = (0..dim).map(|_| rng.gen::<f32>()).collect();
+            let b: Vec<f32> = (0..dim).map(|_| rng.gen::<f32>()).collect();
+            let got = cosine(&a, &b);
+            let dot: f32 = a.iter().zip(&b).map(|(x, y)| x * y).sum();
+            let na: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+            let nb: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
+            let naive = 1.0 - dot / (na * nb);
+            assert!(
+                (got - naive).abs() <= 1e-3,
+                "dim={dim}: {got} vs naive {naive}"
+            );
+        }
+    }
+
     const EPS: f32 = 1e-6;
 
     #[test]
