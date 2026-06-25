@@ -133,7 +133,7 @@ Every result returns `{"id", "score", "metadata", "document"}`.
 pip install vxdb
 ```
 
-That's the whole thing. Works on **macOS, Linux, Windows**. Python 3.9+.
+That's the whole thing. Works on **macOS, Linux, Windows**. Python 3.11+.
 
 For the HTTP client (talking to a remote vxdb server):
 
@@ -288,6 +288,8 @@ collection.keyword_search(query, top_k=10)
 collection.delete(ids)
 collection.count()
 ```
+
+`vectors` accepts a `list[list[float]]` or a 2-D `float32` NumPy array — NumPy arrays are read zero-copy via the buffer protocol, and NumPy is never imported or required.
 
 ### REST API
 

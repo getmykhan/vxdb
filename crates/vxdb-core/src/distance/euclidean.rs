@@ -1,15 +1,40 @@
 use super::DistanceMetric;
 
+/// L2 distance. Free function so both the `DistanceMetric` trait impl and the
+/// monomorphized `Metric` enum share one `#[inline]` code path.
+///
+/// Uses `LANES` independent accumulators so LLVM can auto-vectorize the
+/// reduction (NEON/SSE are baseline on arm64/x86-64) — a single running sum
+/// can't vectorize because IEEE f32 addition isn't associative. Zero deps, no
+/// `unsafe`, no intrinsics. Vectors shorter than `LANES` fall to the scalar
+/// remainder and match the naive result exactly.
+#[inline]
+pub(crate) fn euclidean(a: &[f32], b: &[f32]) -> f32 {
+    const LANES: usize = 8;
+    let mut acc = [0.0f32; LANES];
+    let mut ca = a.chunks_exact(LANES);
+    let mut cb = b.chunks_exact(LANES);
+    for (x, y) in ca.by_ref().zip(cb.by_ref()) {
+        let x: &[f32; LANES] = x.try_into().unwrap();
+        let y: &[f32; LANES] = y.try_into().unwrap();
+        for j in 0..LANES {
+            let d = x[j] - y[j];
+            acc[j] += d * d;
+        }
+    }
+    let mut sum: f32 = acc.iter().sum();
+    for (x, y) in ca.remainder().iter().zip(cb.remainder()) {
+        let d = x - y;
+        sum += d * d;
+    }
+    sum.sqrt()
+}
+
 pub struct EuclideanDistance;
 
 impl DistanceMetric for EuclideanDistance {
     fn distance(&self, a: &[f32], b: &[f32]) -> f32 {
-        let mut sum = 0.0f32;
-        for i in 0..a.len() {
-            let diff = a[i] - b[i];
-            sum += diff * diff;
-        }
-        sum.sqrt()
+        euclidean(a, b)
     }
 }
 

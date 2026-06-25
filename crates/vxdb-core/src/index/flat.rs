@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::distance::DistanceMetric;
+use crate::distance::Metric;
 use crate::error::{VexError, VexResult};
 use crate::types::{Metadata, SearchResult, VectorData};
 
@@ -8,7 +8,7 @@ use super::VectorIndex;
 
 pub struct FlatIndex {
     dimension: usize,
-    metric: Box<dyn DistanceMetric>,
+    metric: Metric,
     vectors: Vec<VectorData>,
     ids: Vec<String>,
     metadata: Vec<Metadata>,
@@ -16,7 +16,7 @@ pub struct FlatIndex {
 }
 
 impl FlatIndex {
-    pub fn new(dimension: usize, metric: Box<dyn DistanceMetric>) -> Self {
+    pub fn new(dimension: usize, metric: Metric) -> Self {
         Self {
             dimension,
             metric,
@@ -117,11 +117,10 @@ impl VectorIndex for FlatIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::distance::CosineDistance;
     use std::collections::HashMap;
 
     fn make_index() -> FlatIndex {
-        FlatIndex::new(3, Box::new(CosineDistance))
+        FlatIndex::new(3, Metric::Cosine)
     }
 
     #[test]

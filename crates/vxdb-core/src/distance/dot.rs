@@ -1,15 +1,33 @@
 use super::DistanceMetric;
 
+/// Negative dot product (so lower = more similar). Free function shared by the
+/// trait impl and the monomorphized `Metric` enum. Multiple accumulators let
+/// LLVM auto-vectorize the reduction (see `euclidean` for the rationale).
+#[inline]
+pub(crate) fn dot(a: &[f32], b: &[f32]) -> f32 {
+    const LANES: usize = 8;
+    let mut acc = [0.0f32; LANES];
+    let mut ca = a.chunks_exact(LANES);
+    let mut cb = b.chunks_exact(LANES);
+    for (x, y) in ca.by_ref().zip(cb.by_ref()) {
+        let x: &[f32; LANES] = x.try_into().unwrap();
+        let y: &[f32; LANES] = y.try_into().unwrap();
+        for j in 0..LANES {
+            acc[j] += x[j] * y[j];
+        }
+    }
+    let mut sum: f32 = acc.iter().sum();
+    for (x, y) in ca.remainder().iter().zip(cb.remainder()) {
+        sum += x * y;
+    }
+    -sum
+}
+
 pub struct DotProductDistance;
 
 impl DistanceMetric for DotProductDistance {
-    /// Returns negative dot product so that lower = more similar.
     fn distance(&self, a: &[f32], b: &[f32]) -> f32 {
-        let mut dot = 0.0f32;
-        for i in 0..a.len() {
-            dot += a[i] * b[i];
-        }
-        -dot
+        dot(a, b)
     }
 }
 

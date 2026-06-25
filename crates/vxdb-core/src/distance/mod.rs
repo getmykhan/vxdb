@@ -16,10 +16,34 @@ pub trait DistanceMetric: Send + Sync {
     fn distance(&self, a: &[f32], b: &[f32]) -> f32;
 }
 
-pub fn metric_for_kind(kind: DistanceMetricKind) -> Box<dyn DistanceMetric> {
+/// Monomorphized distance dispatch for the hot path.
+///
+/// Unlike `Box<dyn DistanceMetric>`, this `Copy` enum lets the compiler inline
+/// `distance` into the index inner loops (a vtable call cannot be inlined),
+/// which in turn lets LLVM auto-vectorize the per-dimension reduction. Same
+/// math as the trait impls — both share the `#[inline]` free functions.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Metric {
+    Cosine,
+    Euclidean,
+    DotProduct,
+}
+
+impl Metric {
+    #[inline]
+    pub fn distance(&self, a: &[f32], b: &[f32]) -> f32 {
+        match self {
+            Metric::Cosine => cosine::cosine(a, b),
+            Metric::Euclidean => euclidean::euclidean(a, b),
+            Metric::DotProduct => dot::dot(a, b),
+        }
+    }
+}
+
+pub fn metric_for_kind(kind: DistanceMetricKind) -> Metric {
     match kind {
-        DistanceMetricKind::Cosine => Box::new(CosineDistance),
-        DistanceMetricKind::Euclidean => Box::new(EuclideanDistance),
-        DistanceMetricKind::DotProduct => Box::new(DotProductDistance),
+        DistanceMetricKind::Cosine => Metric::Cosine,
+        DistanceMetricKind::Euclidean => Metric::Euclidean,
+        DistanceMetricKind::DotProduct => Metric::DotProduct,
     }
 }

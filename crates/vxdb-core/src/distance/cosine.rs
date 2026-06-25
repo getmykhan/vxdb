@@ -1,24 +1,45 @@
 use super::DistanceMetric;
 
+/// Cosine distance (1 - cosine similarity). Free function shared by the trait
+/// impl and the monomorphized `Metric` enum. Multiple accumulators let LLVM
+/// auto-vectorize the three reductions (see `euclidean` for the rationale).
+#[inline]
+pub(crate) fn cosine(a: &[f32], b: &[f32]) -> f32 {
+    const LANES: usize = 8;
+    let mut adot = [0.0f32; LANES];
+    let mut anorm_a = [0.0f32; LANES];
+    let mut anorm_b = [0.0f32; LANES];
+    let mut ca = a.chunks_exact(LANES);
+    let mut cb = b.chunks_exact(LANES);
+    for (x, y) in ca.by_ref().zip(cb.by_ref()) {
+        let x: &[f32; LANES] = x.try_into().unwrap();
+        let y: &[f32; LANES] = y.try_into().unwrap();
+        for j in 0..LANES {
+            adot[j] += x[j] * y[j];
+            anorm_a[j] += x[j] * x[j];
+            anorm_b[j] += y[j] * y[j];
+        }
+    }
+    let mut dot: f32 = adot.iter().sum();
+    let mut norm_a: f32 = anorm_a.iter().sum();
+    let mut norm_b: f32 = anorm_b.iter().sum();
+    for (x, y) in ca.remainder().iter().zip(cb.remainder()) {
+        dot += x * y;
+        norm_a += x * x;
+        norm_b += y * y;
+    }
+    let denom = norm_a.sqrt() * norm_b.sqrt();
+    if denom == 0.0 {
+        return 1.0;
+    }
+    1.0 - (dot / denom)
+}
+
 pub struct CosineDistance;
 
 impl DistanceMetric for CosineDistance {
     fn distance(&self, a: &[f32], b: &[f32]) -> f32 {
-        let mut dot = 0.0f32;
-        let mut norm_a = 0.0f32;
-        let mut norm_b = 0.0f32;
-
-        for i in 0..a.len() {
-            dot += a[i] * b[i];
-            norm_a += a[i] * a[i];
-            norm_b += b[i] * b[i];
-        }
-
-        let denom = norm_a.sqrt() * norm_b.sqrt();
-        if denom == 0.0 {
-            return 1.0;
-        }
-        1.0 - (dot / denom)
+        cosine(a, b)
     }
 }
 

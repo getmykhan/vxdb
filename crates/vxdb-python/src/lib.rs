@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
@@ -110,6 +111,26 @@ fn results_to_py(py: Python<'_>, results: Vec<vxdb_core::types::SearchResult>) -
         .collect()
 }
 
+/// Convert the `vectors` argument into `Vec<Vec<f32>>`.
+///
+/// Fast path: if the object exposes the Python buffer protocol as a 2-D,
+/// C-contiguous f32 buffer (numpy/torch/jax arrays, `array.array`), read its raw
+/// memory directly — no per-element Python float boxing, no giant intermediate
+/// list. This lets vxdb ingest numpy data efficiently while staying
+/// dependency-free: numpy is never imported or required, we only read the
+/// standard buffer interface it (and others) implement. Otherwise fall back to
+/// extracting a `List[List[float]]`.
+fn extract_vectors(vectors: &Bound<'_, PyAny>) -> PyResult<Vec<Vec<f32>>> {
+    if let Ok(buf) = PyBuffer::<f32>::get_bound(vectors) {
+        if buf.dimensions() == 2 && buf.is_c_contiguous() {
+            let dim = buf.shape()[1];
+            let flat = buf.to_vec(vectors.py())?;
+            return Ok(flat.chunks(dim).map(<[f32]>::to_vec).collect());
+        }
+    }
+    vectors.extract::<Vec<Vec<f32>>>()
+}
+
 #[pyclass]
 struct Collection {
     name: String,
@@ -122,10 +143,11 @@ impl Collection {
     fn upsert(
         &self,
         ids: Vec<String>,
-        vectors: Vec<Vec<f32>>,
+        vectors: &Bound<'_, PyAny>,
         metadata: Option<Bound<'_, PyList>>,
         documents: Option<Vec<String>>,
     ) -> PyResult<()> {
+        let vectors = extract_vectors(vectors)?;
         let metas: Vec<HashMap<String, serde_json::Value>> = match metadata {
             Some(list) => {
                 let mut result = Vec::new();

@@ -5,6 +5,34 @@ All notable changes to vxdb will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-24
+
+### Added
+
+- Zero-copy NumPy ingest: `Collection.upsert(vectors=...)` now accepts a 2-D
+  `float32` NumPy array (or any object exposing the Python buffer protocol —
+  torch, jax, `array.array`) and reads its memory directly. NumPy is never
+  imported or required, so the zero-dependency guarantee is unchanged. Roughly
+  halves peak memory during ingest.
+
+### Changed
+
+- HNSW distance computation rewritten for auto-vectorization: the
+  `DistanceMetric` trait object was replaced with a monomorphized `Metric`
+  enum, and the L2/cosine/dot kernels use multiple accumulators so the compiler
+  emits SIMD (NEON on arm64, SSE on x86-64). ~2x faster HNSW build and ~2x
+  faster queries — no new dependencies, no `unsafe`.
+- HNSW search reuses a version-stamped visited buffer instead of allocating a
+  `HashSet` per layer, further reducing build time.
+- Default `ef_search` raised from 50 to 150, materially improving recall on
+  high-dimensional data in exchange for a small amount of query latency.
+
+### Removed
+
+- Dropped support for Python 3.9 and 3.10 (both end-of-life). vxdb now requires
+  **Python 3.11+** and ships an `abi3-py311` wheel. This is what enables the
+  buffer-protocol NumPy ingest, which the older limited ABI does not expose.
+
 ## [0.1.0] - 2026-04-07
 
 ### Added
