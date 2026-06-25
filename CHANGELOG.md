@@ -5,6 +5,26 @@ All notable changes to vxdb will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-06-25
+
+### Added
+
+- **`vxdb-server` is now a pip-installable package.** The standalone HTTP server
+  ships as a separate, optional wheel built from the same workspace (maturin
+  "bin" bindings), so `pip install vxdb-server` puts the `vxdb-server` binary on
+  your `PATH` — making the README's "Server Mode" section true for pip users for
+  the first time. The core `vxdb` wheel is unchanged (still dependency-free,
+  ~1.4 MB); the server wheel (~2.6 MB) is only installed by those who want it.
+  Versions stay in lockstep via the shared workspace version.
+
+### Changed
+
+- `tests/test_server_client.py` now discovers the `vxdb-server` binary on `PATH`
+  (i.e. an installed wheel) before falling back to the cargo target dir, so the
+  suite validates the shipped artifact.
+- README "Server Mode" documents `pip install vxdb-server` and notes the server
+  is in-memory only.
+
 ## [0.3.1] - 2026-06-24
 
 ### Fixed

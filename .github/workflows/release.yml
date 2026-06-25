@@ -31,11 +31,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Build wheels
+      - name: Build wheels (vxdb core)
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           args: --release --out dist
+          manylinux: auto
+      - name: Build wheels (vxdb-server)
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist -m crates/vxdb-server/Cargo.toml
           manylinux: auto
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -48,11 +54,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build sdist
+      - name: Build sdist (vxdb core)
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
           args: --out dist
+      - name: Build sdist (vxdb-server)
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist -m crates/vxdb-server/Cargo.toml
       - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:

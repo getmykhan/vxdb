@@ -1,0 +1,47 @@
+# Packaging for the standalone `vxdb-server` binary as a pip-installable wheel.
+#
+# This builds the SAME Rust binary as `cargo build -p vxdb-server`, but ships it
+# as a wheel via maturin's "bin" bindings so users can:
+#
+#     pip install vxdb-server
+#     vxdb-server --port 8080
+#
+# The core `vxdb` wheel (built from the repo-root pyproject.toml) is unaffected
+# and stays dependency-free at ~1.4 MB. This is a separate optional artifact of
+# the same workspace; the version is inherited from Cargo.toml (workspace 0.3.1)
+# so `vxdb` and `vxdb-server` always ship in lockstep.
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "vxdb-server"
+dynamic = ["version"]
+description = "Standalone HTTP server for vxdb — the same Rust engine, accessed over REST."
+readme = "README.md"
+requires-python = ">=3.8"
+license = "Apache-2.0"
+authors = [
+    { name = "Yusuf Khan", email = "yusuf@getmykhan.com" },
+]
+keywords = ["vector-database", "embeddings", "search", "rust", "hnsw", "bm25", "hybrid-search", "server", "rest"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Rust",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+]
+
+[project.urls]
+Homepage = "https://github.com/getmykhan/vxdb"
+Repository = "https://github.com/getmykhan/vxdb"
+Issues = "https://github.com/getmykhan/vxdb/issues"
+
+[tool.maturin]
+# Build the crate's [[bin]] target (vxdb-server) and ship it as a console script.
+bindings = "bin"
+manifest-path = "Cargo.toml"

@@ -1,32 +1,43 @@
 """Integration tests: Python client against vxdb HTTP server.
 
 These tests start the server binary, run client operations, and verify results.
-They require the vxdb-server binary to be built (cargo build -p vxdb-server).
+They require:
+  - the `vxdb-server` binary on PATH (``pip install vxdb-server``) or built
+    locally (``cargo build -p vxdb-server``); the suite auto-skips otherwise;
+  - the `vxdb` package importable (installed wheel, or ``PYTHONPATH=python``).
 """
 
 import os
+import shutil
 import signal
 import subprocess
-import sys
 import time
 
 import pytest
 
-# Adjust path so we can import vxdb from the workspace
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
-
 
 def find_server_binary():
-    """Find the vxdb-server binary in the cargo target directory."""
+    """Locate the vxdb-server binary.
+
+    Prefers a binary already on PATH (i.e. installed from the ``vxdb-server``
+    wheel via ``pip install vxdb-server``), so this suite validates the shipped
+    artifact. Falls back to the cargo target directory for local-from-source
+    runs (``cargo build -p vxdb-server``).
+    """
+    on_path = shutil.which("vxdb-server")
+    if on_path:
+        return on_path
+
     base = os.path.join(os.path.dirname(__file__), "..")
     candidates = [
         os.path.join(base, "target", "debug", "vxdb-server"),
-        # sandboxed builds use a different target dir
+        os.path.join(base, "target", "release", "vxdb-server"),
     ]
     # Also check CARGO_TARGET_DIR env var
     cargo_target = os.environ.get("CARGO_TARGET_DIR")
     if cargo_target:
         candidates.insert(0, os.path.join(cargo_target, "debug", "vxdb-server"))
+        candidates.insert(1, os.path.join(cargo_target, "release", "vxdb-server"))
 
     for path in candidates:
         if os.path.isfile(path):

@@ -35,13 +35,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Build and install wheel
+      - name: Build and install wheels
         run: |
-          pip install maturin pytest numpy
-          maturin build --out dist
+          pip install maturin pytest numpy httpx
+          maturin build --out dist                                    # vxdb core (extension)
+          maturin build -m crates/vxdb-server/Cargo.toml --out dist   # vxdb-server (binary)
           pip install dist/*.whl
       - name: Run tests
-        run: pytest tests/ -v
+        run: pytest tests/ -v   # incl. test_server_client.py against the installed vxdb-server
 
   lint:
     name: Python lint

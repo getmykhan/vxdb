@@ -184,10 +184,26 @@ works and bypasses embedding — vxdb never requires or imports your model libra
 
 Same engine, accessed over HTTP. Deploy it as a standalone service.
 
+The server ships as a **separate, optional package** — `pip install vxdb-server`
+adds the `vxdb-server` binary without touching the lean core `vxdb` wheel:
+
 ```bash
-# Start the server
+# Install the standalone server (separate package, no extra deps)
+pip install vxdb-server
+
+# Start it
 vxdb-server --host 0.0.0.0 --port 8080
 ```
+
+The Python `Client` lives in the core package — install it with the `server`
+extra (which pulls in `httpx`):
+
+```bash
+pip install 'vxdb[server]'
+```
+
+> **Note:** server mode is currently **in-memory only** — data does not persist
+> across restarts. For persistence, use embedded mode (`vxdb.Database(path=...)`).
 
 **Python client:**
 
