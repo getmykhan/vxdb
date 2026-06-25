@@ -5,6 +5,17 @@ All notable changes to vxdb will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-06-24
+
+### Fixed
+
+- `Collection.hybrid_query` positional argument order regressed in 0.3.0: the
+  wrapper declared `hybrid_query(query, vector=...)` instead of the native
+  `hybrid_query(vector, query, ...)`, so positional calls like
+  `hybrid_query(vec, "text")` raised `TypeError`. Restored the native order
+  (`query` is still required; `vector` is embedded from it when omitted) and
+  added a positional-call regression test.
+
 ## [0.3.0] - 2026-06-24
 
 ### Added

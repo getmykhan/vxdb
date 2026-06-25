@@ -58,7 +58,12 @@ class Collection:
             vector = _embed(self.embedding_function, [query_text])[0]
         return self._native.query(vector=vector, top_k=top_k, filter=filter)
 
-    def hybrid_query(self, query, vector=None, top_k=10, alpha=0.5):
+    def hybrid_query(self, vector=None, query=None, top_k=10, alpha=0.5):
+        # `vector` stays first to match the native positional order
+        # `hybrid_query(vector, query, ...)`. `query` (the BM25 text) is required;
+        # `vector` is embedded from it when omitted.
+        if query is None:
+            raise ValueError("hybrid_query requires `query` text (the keyword/BM25 component)")
         if vector is None:
             vector = _embed(self.embedding_function, [query])[0]
         return self._native.hybrid_query(vector=vector, query=query, top_k=top_k, alpha=alpha)

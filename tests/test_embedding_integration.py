@@ -90,6 +90,28 @@ def test_query_explicit_vector_still_works():
 # --- hybrid auto-embed -------------------------------------------------------
 
 
+def test_hybrid_query_positional_arg_order():
+    # Back-compat: the native order is hybrid_query(vector, query, ...). Calling
+    # it positionally must keep working (regression guard for the wrapper).
+    db = make_db()
+    coll = db.create_collection("docs", dimension=3, metric="l2")
+    coll.upsert(
+        ids=["a", "b"],
+        vectors=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        documents=["hello world", "foo bar"],
+    )
+    res = coll.hybrid_query([1.0, 0.0, 0.0], "hello", top_k=1)
+    assert res[0]["id"] == "a"
+
+
+def test_hybrid_query_requires_query_text():
+    db = make_db()
+    coll = db.create_collection("docs", dimension=3, metric="l2")
+    coll.upsert(ids=["a"], vectors=[[1.0, 0.0, 0.0]], documents=["hello"])
+    with pytest.raises(ValueError):
+        coll.hybrid_query(vector=[1.0, 0.0, 0.0])  # no query text
+
+
 def test_hybrid_query_auto_embeds_vector():
     db = make_db()
     coll = db.create_collection("docs", metric="l2", embedding_function=WordEmbedder())
