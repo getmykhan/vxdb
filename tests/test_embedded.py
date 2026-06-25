@@ -214,6 +214,33 @@ def test_embedding_function_interface():
     assert vectors[1] == [1.0, 1.0, 1.0]
 
 
+def test_version_matches_package_metadata():
+    # __version__ must never drift from the installed package version.
+    import importlib.metadata
+
+    assert vxdb.__version__ == importlib.metadata.version("vxdb")
+
+
+def test_embedding_function_end_to_end():
+    # The documented EmbeddingFunction workflow must actually work: subclass,
+    # embed(), feed the vectors into upsert. Also checks the top-level export.
+    from vxdb import EmbeddingFunction
+
+    class MockEmbedder(EmbeddingFunction):
+        def embed(self, texts):
+            return [[float(len(t))] * 3 for t in texts]
+
+    embedder = MockEmbedder()
+    db = vxdb.Database()
+    coll = db.create_collection("docs", dimension=3, metric="l2")
+    docs = ["hi", "hello"]
+    coll.upsert(ids=["a", "b"], vectors=embedder.embed(docs), documents=docs)
+    assert coll.count() == 2
+
+    results = coll.query(vector=[2.0, 2.0, 2.0], top_k=1)
+    assert results[0]["id"] == "a"  # "hi" -> len 2 -> [2,2,2]
+
+
 def test_upsert_with_documents():
     db = vxdb.Database()
     coll = db.create_collection("docs", dimension=3, metric="cosine")

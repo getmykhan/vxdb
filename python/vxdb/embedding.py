@@ -14,11 +14,9 @@ class EmbeddingFunction(ABC):
             def embed(self, texts: list[str]) -> list[list[float]]:
                 return [[0.1, 0.2] for _ in texts]
 
-        collection.upsert(
-            ids=["a"],
-            documents=["hello"],
-            embedding_fn=my_embedder,
-        )
+        embedder = MyEmbedder()
+        docs = ["hello"]
+        collection.upsert(ids=["a"], vectors=embedder.embed(docs), documents=docs)
     """
 
     @abstractmethod

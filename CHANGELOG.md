@@ -5,6 +5,20 @@ All notable changes to vxdb will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-06-24
+
+### Fixed
+
+- `vxdb.__version__` now derives from installed package metadata via
+  `importlib.metadata` instead of a hardcoded string. It previously reported
+  `0.1.0` even on the `0.2.0` release; it can no longer drift from the package
+  version.
+- `EmbeddingFunction` is now exported from the top-level `vxdb` package
+  (`from vxdb import EmbeddingFunction`). Its docstring also showed a
+  non-existent `collection.upsert(..., embedding_fn=...)` call that raised
+  `TypeError`; it now shows the correct workflow — call `embed()` yourself and
+  pass the result as `vectors`.
+
 ## [0.2.0] - 2026-06-24
 
 ### Added
