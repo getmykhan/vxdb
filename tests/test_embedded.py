@@ -1,5 +1,8 @@
 """End-to-end tests for vxdb embedded mode (PyO3 bindings)."""
 
+import subprocess
+import sys
+
 import pytest
 import vxdb
 
@@ -378,3 +381,17 @@ def test_numpy_zero_width_raises_cleanly():
     # (this used to be a Rust panic in the buffer ingest path).
     with pytest.raises(ValueError):
         coll.upsert(ids=["a"], vectors=np.zeros((1, 0), dtype=np.float32))
+
+
+def test_version_resolution_is_lazy():
+    # `import vxdb` must not eagerly import importlib.metadata: that scan costs
+    # ~35 ms and would blow the documented <10 ms startup budget. __version__ is
+    # resolved lazily on first access. This runs in a subprocess because pytest
+    # itself imports importlib.metadata, which would pollute an in-process check.
+    code = (
+        "import sys, vxdb\n"
+        "assert 'importlib.metadata' not in sys.modules, 'metadata imported at import time'\n"
+        "assert vxdb.__version__, 'version should resolve'\n"
+        "assert 'importlib.metadata' in sys.modules, 'access should trigger the lookup'\n"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)
