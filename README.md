@@ -1,6 +1,7 @@
 # vxdb
 
 [![PyPI](https://img.shields.io/pypi/v/vxdb)](https://pypi.org/project/vxdb/)
+[![PyPI: vxdb-server](https://img.shields.io/pypi/v/vxdb-server?label=vxdb-server)](https://pypi.org/project/vxdb-server/)
 [![CI](https://github.com/getmykhan/vxdb/actions/workflows/ci.yml/badge.svg)](https://github.com/getmykhan/vxdb/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/pypi/pyversions/vxdb)](https://pypi.org/project/vxdb/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
@@ -8,8 +9,6 @@
 **The vector database that fits in your pocket.**
 
 Rust-powered. Python-native. One `pip install` away.
-
----
 
 ```python
 pip install vxdb
@@ -35,8 +34,6 @@ collection.query(vector=embed("machine learning"), top_k=5)
 `embed()` is any function that turns text into vectors — see [examples/](examples/) for OpenAI, Sentence Transformers, LangChain, and Cohere.
 
 That's it. No Docker. No config files. No cloud account. No 500 MB of dependencies.
-
----
 
 ## Why developers choose vxdb
 
@@ -64,13 +61,9 @@ Many databases now offer an "embedded" mode — but the implementations vary wid
 
 vxdb's embedded mode is the **real Rust engine** compiled directly into a Python extension via PyO3. No serialization. No subprocess. No network. And the same engine powers the standalone REST server — start in a notebook, scale to multi-client HTTP when you're ready. No rewrite.
 
----
-
 ## The full picture
 
 ![vxdb architecture](docs/vxdb-architecture.png)
-
----
 
 ## Quick Start
 
@@ -125,8 +118,6 @@ results = collection.keyword_search(query="machine learning", top_k=5)
 
 Every result returns `{"id", "score", "metadata", "document"}`.
 
----
-
 ## Installation
 
 ```bash
@@ -141,12 +132,9 @@ For the HTTP client (talking to a remote vxdb server):
 pip install 'vxdb[server]'
 ```
 
----
-
 ## Embedding Providers
 
 vxdb stores **pre-computed vectors** — bring any embedding model you want. We have step-by-step notebooks for each:
-
 
 | Provider                     | Install                             | API Key?   | Notebook                                                                       |
 | ---------------------------- | ----------------------------------- | ---------- | ------------------------------------------------------------------------------ |
@@ -155,7 +143,6 @@ vxdb stores **pre-computed vectors** — bring any embedding model you want. We 
 | **LangChain** (any provider) | `pip install langchain-openai`      | Depends    | [examples/langchain_integration.ipynb](examples/langchain_integration.ipynb) |
 | **Cohere**                   | `pip install cohere`                | Yes        | [examples/cohere_embeddings.ipynb](examples/cohere_embeddings.ipynb)         |
 | **Ollama** (local LLMs)      | `pip install ollama`                | No (local) | —                                                                              |
-
 
 Or let vxdb embed for you. Attach an `embedding_function` to a collection and
 work in **text** — pass `documents` to `upsert` and `query_text` to `query`:
@@ -177,8 +164,6 @@ docs.query(query_text="machine learning", top_k=5)
 The `embedding_function` can be an `EmbeddingFunction` subclass or any callable
 `list[str] -> list[list[float]]`. Passing `vectors`/`vector` explicitly always
 works and bypasses embedding — vxdb never requires or imports your model library.
-
----
 
 ## Server Mode
 
@@ -242,8 +227,6 @@ docker build -t vxdb .
 docker run -p 8080:8080 vxdb    # ~145 MB Debian-based image
 ```
 
----
-
 ## Hybrid Search
 
 Most vector databases give you vector search OR keyword search. vxdb gives you both, fused intelligently in a single call.
@@ -265,10 +248,7 @@ results = collection.hybrid_query(
 )
 ```
 
----
-
 ## How vxdb compares
-
 
 |                                  | vxdb                        | Zvec (Alibaba)              | ChromaDB                | Qdrant                    | Pinecone      | Milvus                  | Weaviate                    | FAISS         |
 | -------------------------------- | --------------------------- | --------------------------- | ----------------------- | ------------------------- | ------------- | ----------------------- | --------------------------- | ------------- |
@@ -290,9 +270,6 @@ results = collection.hybrid_query(
 | **Docker image**                 | ~145 MB                     | N/A (no server)             | ~200 MB+                | ~100 MB                   | No            | ~1 GB+                  | ~300 MB+                    | No            |
 | **Runs offline**                 | **Yes**                     | Yes                         | Yes                     | Yes                       | No            | Yes                     | Yes                         | Yes           |
 | **License**                      | **Apache 2.0**              | Apache 2.0                  | Apache 2.0              | Apache 2.0                | Proprietary   | Apache 2.0              | BSD-3                       | MIT           |
-
-
----
 
 ## API Reference
 
@@ -320,7 +297,6 @@ collection.count()
 
 ### REST API
 
-
 | Method   | Endpoint                      | Description                           |
 | -------- | ----------------------------- | ------------------------------------- |
 | `POST`   | `/collections`                | Create collection                     |
@@ -333,9 +309,7 @@ collection.count()
 | `POST`   | `/collections/{name}/delete`  | Delete vectors by ID                  |
 | `GET`    | `/collections/{name}/count`   | Count vectors                         |
 
-
 ### Parameters
-
 
 | Parameter | Values                                                          | Default    |
 | --------- | --------------------------------------------------------------- | ---------- |
@@ -344,13 +318,9 @@ collection.count()
 | `filter`  | `$eq` `$ne` `$gt` `$gte` `$lt` `$lte` `$in` `$nin` `$and` `$or` | —          |
 | `alpha`   | `0.0` (keyword) to `1.0` (vector)                               | `0.5`      |
 
-
----
-
 ## Examples
 
 Interactive Jupyter notebooks with step-by-step walkthroughs:
-
 
 | Notebook                                                              | What you'll build                      |
 | --------------------------------------------------------------------- | -------------------------------------- |
@@ -360,9 +330,6 @@ Interactive Jupyter notebooks with step-by-step walkthroughs:
 | [langchain_integration.ipynb](examples/langchain_integration.ipynb) | LangChain + RAG pipeline               |
 | [cohere_embeddings.ipynb](examples/cohere_embeddings.ipynb)         | Multilingual search with Cohere        |
 | [hybrid_search.ipynb](examples/hybrid_search.ipynb)                 | Deep dive: vector vs keyword vs hybrid |
-
-
----
 
 ## Development
 
@@ -393,8 +360,6 @@ vxdb/
 └── tests/                # Python integration tests
 ```
 
----
-
 ## Roadmap
 
 - ~~Persistent collections (mmap + SQLite + WAL)~~ **Done**
@@ -408,8 +373,6 @@ vxdb/
 - Official LangChain `VectorStore` integration
 - Kubernetes Helm chart
 - Benchmarks suite vs Qdrant, ChromaDB, Zvec, FAISS
-
----
 
 ## License
 
