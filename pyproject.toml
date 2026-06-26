@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 authors = [
-    { name = "Yusuf Khan", email = "yusuf@getmykhan.com" },
+    { name = "Yusuf Khan" },
 ]
 keywords = ["vector-database", "embeddings", "search", "rust", "hnsw", "bm25", "hybrid-search", "pyo3"]
 classifiers = [
