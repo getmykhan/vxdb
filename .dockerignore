@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .git/
+# prebuilt extensions in the source tree must not shadow the wheel built in-image
+python/vxdb/*.so

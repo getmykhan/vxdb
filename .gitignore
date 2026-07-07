@@ -23,8 +23,6 @@ build/
 *.swo
 *~
 
-CLAUDE.md
-
 # OS
 .DS_Store
 Thumbs.db
@@ -45,5 +43,5 @@ store.db-shm
 .env
 .env.local
 
-# Local working artifacts (Claude/superpowers specs, plans, scratch) — never commit
-docs/superpowers/
+# Local marketing content, not part of the library
+content/
