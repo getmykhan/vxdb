@@ -5,6 +5,49 @@ All notable changes to vxdb will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-07-06
+
+### Added
+
+- **`vxdb.agent`: ephemeral working memory for agents.** `WorkingMemory` (and
+  the `scratch()` allocator) is an in-process semantic store an agent can
+  consult on every step of its loop: `add`/`add_many` to write, `recall` for
+  top-k reads, `match`/`seen` as a dedup and loop guard, context-manager
+  lifecycle, and live per-op timing via `timing_summary()`. Store operations
+  measure in the ~100 microsecond range, so in-loop memory costs nothing next
+  to the LLM and embedder calls. Pure Python over the embedded `Database()`;
+  no Rust changes.
+- `examples/agent_working_memory.ipynb`: a with/without-memory A/B in notebook
+  form, plus the system prompt and `remember`/`recall` tool wiring for a real
+  OpenAI Agents SDK agent.
+- `tests/test_agent_memory.py`: deterministic, offline coverage for the new
+  module.
+
+### Fixed
+
+- `WorkingMemory` similarity was inverted for `metric="dot"`: the engine
+  reports `-dot_product` as the distance, and the passthrough mapping returned
+  that negated value, so `match`/`seen` thresholds could never fire. Recall
+  ordering was unaffected. Similarity now negates the score back to the raw
+  dot product.
+- `import vxdb` no longer imports `httpx` eagerly. With httpx's CLI extras
+  installed, the old module-level import dragged in rich and pygments (~100 ms
+  and an `importlib.metadata` load, defeating 0.3.3's lazy-import work). The
+  import now happens inside `Client()`, which is the only place it is needed.
+
+### Changed
+
+- README hero is dual-track: use vxdb as a database, or as agent working
+  memory.
+
+## [0.3.3] - 2026-06-25
+
+### Changed
+
+- `__version__` now resolves lazily on first access via `importlib.metadata`,
+  keeping `import vxdb` startup under 10 ms. The value still single-sources
+  from package metadata, so it cannot drift from pyproject/Cargo.
+
 ## [0.3.2] - 2026-06-25
 
 ### Added
