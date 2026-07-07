@@ -4,11 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-try:
-    import httpx
-except ImportError:
-    httpx = None  # type: ignore
-
 
 class VexClientError(Exception):
     """Raised when the server returns an error."""
@@ -98,8 +93,12 @@ class Client:
     """
 
     def __init__(self, base_url: str = "http://localhost:8080"):
-        if httpx is None:
-            raise ImportError("httpx is required for server mode. Install it with: pip install 'vxdb[server]'")
+        # Imported here, not at module top: httpx (and the rich/pygments chain its
+        # CLI extra drags in) must not tax `import vxdb` for embedded-only users.
+        try:
+            import httpx
+        except ImportError as exc:
+            raise ImportError("httpx is required for server mode. Install it with: pip install 'vxdb[server]'") from exc
         self._base_url = base_url.rstrip("/")
         self._http = httpx.Client(base_url=self._base_url, timeout=30.0)
 
