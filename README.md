@@ -1,4 +1,9 @@
-# vxdb
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/getmykhan/vxdb/main/docs/logo/dark.svg">
+    <img src="https://raw.githubusercontent.com/getmykhan/vxdb/main/docs/logo/light.svg" alt="vxdb" width="280">
+  </picture>
+</p>
 
 [![PyPI](https://img.shields.io/pypi/v/vxdb)](https://pypi.org/project/vxdb/)
 [![PyPI: vxdb-server](https://img.shields.io/pypi/v/vxdb-server?label=vxdb-server)](https://pypi.org/project/vxdb-server/)
