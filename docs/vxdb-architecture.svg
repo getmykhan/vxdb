@@ -37,7 +37,7 @@
   </defs>
   <rect width="1100.0" height="780.0" fill="#ffffff"/>
   <text x="550.0" y="56" text-anchor="middle" class="title">vxdb Architecture</text>
-  <text x="550.0" y="82" text-anchor="middle" class="subtitle">The vector database that fits in your pocket — Rust core, Python-native</text>
+  <text x="550.0" y="82" text-anchor="middle" class="subtitle">The vector database that fits in your pocket · fast enough to be memory in the loop</text>
   <rect x="40.0" y="104.0" width="1020.0" height="70.0" rx="4.0" fill="none" stroke="#e5e7eb" stroke-width="1.4"/>
   <text x="58.0" y="128.0" class="section">YOUR APPLICATION</text>
   <rect x="40.0" y="222.0" width="1020.0" height="104.0" rx="4.0" fill="none" stroke="#e5e7eb" stroke-width="1.4"/>
@@ -47,19 +47,23 @@
   <text x="58.0" y="418.0" class="section-sub">Pure Rust hot path · zero GIL contention</text>
   <rect x="40.0" y="622.0" width="1020.0" height="120.0" rx="4.0" fill="none" stroke="#e5e7eb" stroke-width="1.4"/>
   <text x="58.0" y="646.0" class="section">PERSISTENT STORAGE</text>
-  <path d="M 550.0,166.0 L 550.0,186.4 L 330.0,186.4 L 330.0,256.0" fill="none" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arrowA)"/>
-  <path d="M 550.0,166.0 L 550.0,186.4 L 770.0,186.4 L 770.0,256.0" fill="none" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arrowA)"/>
-  <path d="M 330.0,318.0 L 330.0,374.0" fill="none" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arrowA)"/>
-  <path d="M 770.0,318.0 L 770.0,374.0" fill="none" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arrowA)"/>
+  <path d="M 550.0,166.0 L 550.0,186.4 L 210.0,186.4 L 210.0,256.0" fill="none" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arrowA)"/>
+  <path d="M 550.0,166.0 L 550.0,186.4 L 530.0,186.4 L 530.0,256.0" fill="none" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arrowA)"/>
+  <path d="M 550.0,166.0 L 550.0,186.4 L 850.0,186.4 L 850.0,256.0" fill="none" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arrowA)"/>
+  <path d="M 530.0,318.0 L 530.0,374.0" fill="none" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arrowA)"/>
+  <path d="M 850.0,318.0 L 850.0,374.0" fill="none" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arrowA)"/>
   <path d="M 560.0,586.0 L 560.0,622.0" fill="none" stroke="#9ca3af" stroke-width="1.8" marker-end="url(#arrowF)" stroke-dasharray="6,4"/>
   <rect x="410.0" y="120.0" width="280.0" height="46.0" rx="4.0" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.8"/>
   <text x="550.0" y="143.0" text-anchor="middle" class="node-title">Your Python Code</text>
-  <rect x="150.0" y="256.0" width="360.0" height="62.0" rx="4.0" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.8"/>
-  <text x="330.0" y="287.0" text-anchor="middle" class="node-title">Embedded (PyO3)</text>
-  <text x="330.0" y="309.0" text-anchor="middle" class="node-sub">in-process · no serialize · &lt;1µs overhead</text>
-  <rect x="590.0" y="256.0" width="360.0" height="62.0" rx="4.0" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.8"/>
-  <text x="770.0" y="287.0" text-anchor="middle" class="node-title">Server (REST API)</text>
-  <text x="770.0" y="309.0" text-anchor="middle" class="node-sub">Axum · async · multi-client HTTP</text>
+  <rect x="70.0" y="256.0" width="280.0" height="62.0" rx="4.0" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.8"/>
+  <text x="210.0" y="287.0" text-anchor="middle" class="node-title">Agent Working Memory</text>
+  <text x="210.0" y="309.0" text-anchor="middle" class="node-sub">vxdb.agent · scratch() · ephemeral</text>
+  <rect x="390.0" y="256.0" width="280.0" height="62.0" rx="4.0" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.8"/>
+  <text x="530.0" y="287.0" text-anchor="middle" class="node-title">Embedded (PyO3)</text>
+  <text x="530.0" y="309.0" text-anchor="middle" class="node-sub">in-process · no serialize · &lt;1µs overhead</text>
+  <rect x="710.0" y="256.0" width="280.0" height="62.0" rx="4.0" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.8"/>
+  <text x="850.0" y="287.0" text-anchor="middle" class="node-title">Server (REST API)</text>
+  <text x="850.0" y="309.0" text-anchor="middle" class="node-sub">Axum · async · multi-client HTTP</text>
   <rect x="80.0" y="430.0" width="280.0" height="58.0" rx="4.0" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.8"/>
   <text x="220.0" y="448.0" text-anchor="middle" class="node-type">APPROXIMATE ANN</text>
   <text x="220.0" y="465.0" text-anchor="middle" class="node-title">HNSW Index</text>
@@ -99,14 +103,16 @@
   <line x1="723.0" y1="716.0" x2="862.0" y2="716.0" stroke="#d1d5db" stroke-width="1.2"/>
   <text x="797.5" y="750.0" text-anchor="middle" class="node-title">Write-Ahead Log</text>
   <text x="797.5" y="768.0" text-anchor="middle" class="node-sub">crash recovery</text>
-  <rect x="394.5" y="184.4" width="91" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
-  <text x="440.0" y="198.4" text-anchor="middle" class="arrow-label">import vxdb</text>
-  <rect x="614.5" y="184.4" width="91" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
-  <text x="660.0" y="198.4" text-anchor="middle" class="arrow-label">HTTP client</text>
-  <rect x="252.5" y="332.0" width="119" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
-  <text x="312.0" y="346.0" text-anchor="middle" class="arrow-label">FFI · zero-copy</text>
-  <rect x="713.5" y="332.0" width="77" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
-  <text x="752.0" y="346.0" text-anchor="middle" class="arrow-label">async req</text>
+  <rect x="338.0" y="184.4" width="84" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
+  <text x="380.0" y="198.4" text-anchor="middle" class="arrow-label">vxdb.agent</text>
+  <rect x="484.5" y="203.2" width="91" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
+  <text x="530.0" y="217.2" text-anchor="middle" class="arrow-label">import vxdb</text>
+  <rect x="654.5" y="184.4" width="91" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
+  <text x="700.0" y="198.4" text-anchor="middle" class="arrow-label">HTTP client</text>
+  <rect x="449.0" y="332.0" width="126" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
+  <text x="512.0" y="346.0" text-anchor="middle" class="arrow-label">FFI · in-process</text>
+  <rect x="793.5" y="332.0" width="77" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
+  <text x="832.0" y="346.0" text-anchor="middle" class="arrow-label">async req</text>
   <rect x="510.5" y="590.0" width="63" height="20" rx="6" fill="#ffffff" opacity="0.96"/>
   <text x="542.0" y="604.0" text-anchor="middle" class="arrow-label">persist</text>
   <text x="42.0" y="766.0" class="footnote">Single native wheel under 5 MB · zero Python dependencies · starts in &lt;10 ms</text>

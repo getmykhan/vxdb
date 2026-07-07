@@ -1,0 +1,44 @@
+{
+  "template_type": "architecture",
+  "style": 4,
+  "width": 1100,
+  "height": 780,
+  "title": "vxdb Architecture",
+  "subtitle": "The vector database that fits in your pocket · fast enough to be memory in the loop",
+  "style_overrides": { "title_align": "center", "title_size": 26, "subtitle_size": 14, "title_divider": false },
+  "containers": [
+    { "x": 40, "y": 104, "width": 1020, "height": 70, "label": "Your Application" },
+    { "x": 40, "y": 222, "width": 1020, "height": 104, "label": "Access Modes" },
+    { "x": 40, "y": 374, "width": 1020, "height": 212, "label": "Rust Core Engine", "subtitle": "Pure Rust hot path · zero GIL contention" },
+    { "x": 40, "y": 622, "width": 1020, "height": 120, "label": "Persistent Storage" }
+  ],
+  "nodes": [
+    { "id": "app", "kind": "rect", "x": 410, "y": 120, "width": 280, "height": 46, "label": "Your Python Code", "fill": "#eff6ff", "stroke": "#bfdbfe" },
+
+    { "id": "agent", "kind": "rect", "x": 70, "y": 256, "width": 280, "height": 62, "label": "Agent Working Memory", "sublabel": "vxdb.agent · scratch() · ephemeral" },
+    { "id": "embedded", "kind": "rect", "x": 390, "y": 256, "width": 280, "height": 62, "label": "Embedded (PyO3)", "sublabel": "in-process · no serialize · <1µs overhead" },
+    { "id": "server", "kind": "rect", "x": 710, "y": 256, "width": 280, "height": 62, "label": "Server (REST API)", "sublabel": "Axum · async · multi-client HTTP" },
+
+    { "id": "hnsw", "kind": "rect", "x": 80, "y": 430, "width": 280, "height": 58, "label": "HNSW Index", "type_label": "APPROXIMATE ANN" },
+    { "id": "flat", "kind": "rect", "x": 410, "y": 430, "width": 280, "height": 58, "label": "Flat Index", "type_label": "EXACT SEARCH" },
+    { "id": "bm25", "kind": "rect", "x": 740, "y": 430, "width": 280, "height": 58, "label": "BM25 Keyword Index", "type_label": "FULL-TEXT" },
+    { "id": "distance", "kind": "rect", "x": 80, "y": 508, "width": 280, "height": 58, "label": "Distance Metrics", "type_label": "COSINE · L2 · DOT" },
+    { "id": "hybrid", "kind": "rect", "x": 410, "y": 508, "width": 280, "height": 58, "label": "Hybrid Search", "type_label": "RANK FUSION (RRF)", "fill": "#eff6ff", "stroke": "#3b82f6", "stroke_width": 1.8 },
+    { "id": "filter", "kind": "rect", "x": 740, "y": 508, "width": 280, "height": 58, "label": "Metadata Filtering", "type_label": "10 OPERATORS" },
+
+    { "id": "mmap", "kind": "cylinder", "x": 230, "y": 644, "width": 190, "height": 84, "label": "mmap vectors", "fill": "#f9fafb", "stroke": "#9ca3af" },
+    { "id": "sqlite", "kind": "cylinder", "x": 465, "y": 644, "width": 190, "height": 84, "label": "SQLite", "sublabel": "metadata", "fill": "#f9fafb", "stroke": "#9ca3af" },
+    { "id": "wal", "kind": "document", "x": 705, "y": 648, "width": 185, "height": 76, "label": "Write-Ahead Log", "sublabel": "crash recovery", "fill": "#f9fafb", "stroke": "#9ca3af", "line_stroke": "#d1d5db" }
+  ],
+  "arrows": [
+    { "source": "app", "target": "agent", "source_port": "bottom", "target_port": "top", "flow": "control", "label": "vxdb.agent", "label_dy": -8 },
+    { "source": "app", "target": "embedded", "source_port": "bottom", "target_port": "top", "flow": "control", "label": "import vxdb", "label_dy": -8 },
+    { "source": "app", "target": "server", "source_port": "bottom", "target_port": "top", "flow": "control", "label": "HTTP client", "label_dy": -8 },
+    { "x1": 530, "y1": 318, "x2": 530, "y2": 374, "flow": "control", "label": "FFI · in-process" },
+    { "x1": 850, "y1": 318, "x2": 850, "y2": 374, "flow": "control", "label": "async req" },
+    { "x1": 560, "y1": 586, "x2": 560, "y2": 622, "flow": "async", "dashed": true, "label": "persist" }
+  ],
+  "footer": "Single native wheel under 5 MB · zero Python dependencies · starts in <10 ms",
+  "footer_position": "bottom-left",
+  "footer_y": 766
+}
