@@ -12,6 +12,7 @@ Step-by-step Jupyter notebooks showing how to use vxdb with popular embedding pr
 | **[langchain_integration.ipynb](langchain_integration.ipynb)** | LangChain with any provider + RAG pipeline | Depends | `pip install vxdb langchain-openai langchain-huggingface` |
 | **[cohere_embeddings.ipynb](cohere_embeddings.ipynb)** | Cohere `embed-v4.0` with multilingual search | Yes | `pip install vxdb cohere` |
 | **[hybrid_search.ipynb](hybrid_search.ipynb)** | Deep dive into hybrid search, alpha tuning | No | `pip install vxdb sentence-transformers` |
+| **[agent_working_memory.ipynb](agent_working_memory.ipynb)** | vxdb as agent working memory: `scratch()`, a with/without A/B, real-agent tool wiring | No | `pip install vxdb` (optional: `model2vec`, `openai-agents`) |
 
 ## Where to start
 
@@ -24,6 +25,9 @@ Step-by-step Jupyter notebooks showing how to use vxdb with popular embedding pr
 - Provider-agnostic: `langchain_integration.ipynb`
 
 **Want hybrid search?** `hybrid_search.ipynb` covers when to use it and how to tune `alpha`.
+
+**Building an agent?** `agent_working_memory.ipynb` shows vxdb as in-loop working memory,
+with a with/without A/B and live microsecond timings.
 
 ## Running the notebooks
 

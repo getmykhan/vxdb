@@ -6,13 +6,15 @@
 [![Python](https://img.shields.io/pypi/pyversions/vxdb)](https://pypi.org/project/vxdb/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
-**The vector database that fits in your pocket.**
+**The vector database that fits in your pocket. Fast enough to be memory in the loop.**
 
 Rust-powered. Python-native. One `pip install` away.
 
 ```python
 pip install vxdb
 ```
+
+## Use it as a database
 
 ```python
 import vxdb
@@ -34,6 +36,48 @@ collection.query(vector=embed("machine learning"), top_k=5)
 `embed()` is any function that turns text into vectors — see [examples/](examples/) for OpenAI, Sentence Transformers, LangChain, and Cohere.
 
 That's it. No Docker. No config files. No cloud account. No 500 MB of dependencies.
+
+## Use it as agent working memory
+
+vxdb answers in about 100 microseconds in-process, three orders of magnitude below a
+networked store, so an agent can read and write it on every step of its loop.
+`scratch()` allocates a semantic scratchpad, and two tools hand it to the model. The
+model decides what earns storage; the scratchpad itself rejects near-duplicates:
+
+```python
+from agents import Agent, function_tool  # OpenAI Agents SDK; any tool-calling framework works
+from vxdb.agent import scratch
+
+wm = scratch(embed)  # ephemeral scratchpad for this run
+
+@function_tool
+def remember(fact: str) -> str:
+    """Save one durable fact, preference, or constraint."""
+    if wm.seen(fact, threshold=0.9):  # loop guard: near-duplicates are rejected
+        return "already known"
+    wm.add(fact)
+    return "stored"
+
+@function_tool
+def recall(query: str) -> list[str]:
+    """Fetch the stored facts most relevant to the query."""
+    return [hit.text for hit in wm.recall(query, k=5)]
+
+agent = Agent(
+    name="assistant",
+    instructions=(
+        "The moment the user states a durable fact, preference, or constraint, "
+        "call remember() with it. Never store small talk. Call recall() before "
+        "answering anything about earlier context."
+    ),
+    tools=[remember, recall],
+)
+```
+
+Every `remember` call is the model's own retention decision, and each one costs
+microseconds of store time, so consulting memory on every step is effectively free.
+The [notebook](examples/agent_working_memory.ipynb) runs this live, plus a with/without
+A/B where a bounded-window agent fails without memory and succeeds with it.
 
 ## Why developers choose vxdb
 
