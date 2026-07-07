@@ -5,15 +5,17 @@
   </picture>
 </p>
 
-[![PyPI](https://img.shields.io/pypi/v/vxdb)](https://pypi.org/project/vxdb/)
-[![PyPI: vxdb-server](https://img.shields.io/pypi/v/vxdb-server?label=vxdb-server)](https://pypi.org/project/vxdb-server/)
-[![CI](https://github.com/getmykhan/vxdb/actions/workflows/ci.yml/badge.svg)](https://github.com/getmykhan/vxdb/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/pypi/pyversions/vxdb)](https://pypi.org/project/vxdb/)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+<p align="center">
+  <a href="https://pypi.org/project/vxdb/"><img src="https://img.shields.io/pypi/v/vxdb" alt="PyPI"></a>
+  <a href="https://pypi.org/project/vxdb-server/"><img src="https://img.shields.io/pypi/v/vxdb-server?label=vxdb-server" alt="PyPI: vxdb-server"></a>
+  <a href="https://github.com/getmykhan/vxdb/actions/workflows/ci.yml"><img src="https://github.com/getmykhan/vxdb/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://pypi.org/project/vxdb/"><img src="https://img.shields.io/pypi/pyversions/vxdb" alt="Python"></a>
+  <a href="https://github.com/getmykhan/vxdb/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License"></a>
+</p>
 
-**The vector database that fits in your pocket. Fast enough to be memory in the loop.**
+<p align="center"><strong>The vector database that fits in your pocket. Fast enough to be memory in the loop.</strong></p>
 
-Rust-powered. Python-native. One `pip install` away.
+<p align="center">Rust-powered. Python-native. One <code>pip install</code> away.</p>
 
 ```python
 pip install vxdb
