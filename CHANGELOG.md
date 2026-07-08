@@ -5,6 +5,24 @@ All notable changes to vxdb will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-07-08
+
+### Fixed
+
+- **BM25 keyword search penalized documents for matching the query.**
+  `Bm25Index` stored one posting entry per term occurrence instead of one per
+  document, which corrupted scoring twice: document frequency counted
+  corpus-wide occurrences (so a term repeated within documents could exceed
+  the corpus size and flip the IDF negative), and the scoring loop added each
+  term's score once per occurrence, defeating K1 saturation. The more a
+  document repeated a query's words, the harder it was penalized, so
+  `keyword_search` buried exactly the relevant results and dragged
+  `hybrid_query` down with it through RRF. Postings are now
+  `term -> (doc id -> term frequency)`: rankings match textbook BM25, and the
+  per-posting term-frequency rescan of the document is gone. Expect
+  `keyword_search` scores and rankings to change; the new numbers are the
+  corrected ones, not a regression.
+
 ## [0.4.0] - 2026-07-06
 
 ### Added
