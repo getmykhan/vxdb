@@ -5,6 +5,27 @@ All notable changes to vxdb will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Per-query `ef_search`.** `collection.query(..., ef_search=N)` overrides the
+  HNSW search breadth for a single query, trading latency for recall without
+  rebuilding the index. Omit it (or pass `None`) to keep the index default
+  (150); exact (`flat`) collections ignore the hint. Wired through the native
+  binding, the Python `Collection` wrapper, and the type stubs. Higher
+  `ef_search` recovers more of the exact top-k as a collection grows, where a
+  fixed default silently loses recall at scale.
+
+### Changed
+
+- **Vector search releases the GIL.** `query`, `hybrid_query`, and
+  `keyword_search` now run the Rust search with the GIL released, so concurrent
+  queries from multiple threads execute in parallel across cores instead of
+  serializing behind the interpreter lock. Single-threaded callers are
+  unaffected. This makes the documented "zero GIL contention" hot path true for
+  concurrent workloads such as a threaded server or an agent runtime.
+
 ## [0.4.1] - 2026-07-08
 
 ### Fixed

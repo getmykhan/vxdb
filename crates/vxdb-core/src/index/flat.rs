@@ -54,7 +54,13 @@ impl VectorIndex for FlatIndex {
         Ok(())
     }
 
-    fn search(&self, query: &[f32], top_k: usize) -> VexResult<Vec<SearchResult>> {
+    // Exact brute-force search: the ef_search hint is irrelevant and ignored.
+    fn search_ef(
+        &self,
+        query: &[f32],
+        top_k: usize,
+        _ef_search: Option<usize>,
+    ) -> VexResult<Vec<SearchResult>> {
         if query.len() != self.dimension {
             return Err(VexError::DimensionMismatch {
                 expected: self.dimension,

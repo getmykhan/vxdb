@@ -49,14 +49,14 @@ class Collection:
             vectors = _embed(self.embedding_function, documents)
         self._native.upsert(ids=ids, vectors=vectors, metadata=metadata, documents=documents)
 
-    def query(self, vector=None, top_k=10, filter=None, query_text=None):
+    def query(self, vector=None, top_k=10, filter=None, query_text=None, ef_search=None):
         if vector is None:
             if query_text is None:
                 raise ValueError(
                     "query requires `vector`, or `query_text` together with an embedding_function on the collection"
                 )
             vector = _embed(self.embedding_function, [query_text])[0]
-        return self._native.query(vector=vector, top_k=top_k, filter=filter)
+        return self._native.query(vector=vector, top_k=top_k, filter=filter, ef_search=ef_search)
 
     def hybrid_query(self, vector=None, query=None, top_k=10, alpha=0.5):
         # `vector` stays first to match the native positional order

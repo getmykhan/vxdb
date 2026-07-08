@@ -177,7 +177,17 @@ impl Collection {
     }
 
     pub fn query(&self, vector: &[f32], top_k: usize) -> VexResult<Vec<SearchResult>> {
-        let mut results = self.index.search(vector, top_k)?;
+        self.query_ef(vector, top_k, None)
+    }
+
+    /// Vector search with an optional per-query `ef_search` override (HNSW only).
+    pub fn query_ef(
+        &self,
+        vector: &[f32],
+        top_k: usize,
+        ef_search: Option<usize>,
+    ) -> VexResult<Vec<SearchResult>> {
+        let mut results = self.index.search_ef(vector, top_k, ef_search)?;
         self.attach_documents(&mut results)?;
         Ok(results)
     }
@@ -188,8 +198,19 @@ impl Collection {
         top_k: usize,
         filter: &Filter,
     ) -> VexResult<Vec<SearchResult>> {
+        self.query_with_filter_ef(vector, top_k, filter, None)
+    }
+
+    /// Filtered vector search with an optional per-query `ef_search` override.
+    pub fn query_with_filter_ef(
+        &self,
+        vector: &[f32],
+        top_k: usize,
+        filter: &Filter,
+        ef_search: Option<usize>,
+    ) -> VexResult<Vec<SearchResult>> {
         let fetch_k = (top_k * 10).max(100);
-        let candidates = self.index.search(vector, fetch_k)?;
+        let candidates = self.index.search_ef(vector, fetch_k, ef_search)?;
         let mut filtered: Vec<SearchResult> = candidates
             .into_iter()
             .filter(|r| filter.matches(&r.metadata))

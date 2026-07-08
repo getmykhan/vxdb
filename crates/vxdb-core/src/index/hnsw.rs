@@ -368,7 +368,12 @@ impl VectorIndex for HnswIndex {
         Ok(())
     }
 
-    fn search(&self, query: &[f32], top_k: usize) -> VexResult<Vec<SearchResult>> {
+    fn search_ef(
+        &self,
+        query: &[f32],
+        top_k: usize,
+        ef_search: Option<usize>,
+    ) -> VexResult<Vec<SearchResult>> {
         if query.len() != self.dimension {
             return Err(VexError::DimensionMismatch {
                 expected: self.dimension,
@@ -395,8 +400,8 @@ impl VectorIndex for HnswIndex {
             current_layer -= 1;
         }
 
-        // Search layer 0 with ef_search
-        let ef = self.config.ef_search.max(top_k);
+        // Search layer 0 with the per-query ef_search override, or the default.
+        let ef = ef_search.unwrap_or(self.config.ef_search).max(top_k);
         let candidates = self.search_layer(query, vec![ep], ef, 0, &mut visited);
 
         let results: Vec<SearchResult> = candidates
@@ -604,6 +609,60 @@ mod tests {
             recall_new > 0.85,
             "recall at default ef_search = {:.3}, expected > 0.85",
             recall_new
+        );
+    }
+
+    #[test]
+    fn test_per_query_ef_search_override() {
+        // A per-query ef_search overrides the index's configured default without
+        // rebuilding the graph. Higher ef explores more candidates, so recall
+        // rises; passing None falls back to the configured ef_search.
+        use rand::rngs::StdRng;
+        use rand::SeedableRng;
+
+        let dim = 128;
+        let n = 3000;
+        let n_queries = 100;
+        let top_k = 10;
+
+        let mut rng = StdRng::seed_from_u64(0xBEEF);
+        // Configured default ef_search is deliberately low so the override is visible.
+        let mut hnsw = HnswIndex::new(dim, Metric::Euclidean, HnswConfig::new(16, 200, 16));
+        let mut flat = FlatIndex::new(dim, Metric::Euclidean);
+        for i in 0..n {
+            let v: Vec<f32> = (0..dim).map(|_| rng.gen::<f32>()).collect();
+            let id = format!("v{}", i);
+            hnsw.insert(id.clone(), v.clone(), HashMap::new()).unwrap();
+            flat.insert(id, v, HashMap::new()).unwrap();
+        }
+        let queries: Vec<Vec<f32>> = (0..n_queries)
+            .map(|_| (0..dim).map(|_| rng.gen::<f32>()).collect())
+            .collect();
+
+        let recall = |ef: Option<usize>| -> f64 {
+            let mut total = 0.0f64;
+            for q in &queries {
+                let h: HashSet<String> =
+                    hnsw.search_ef(q, top_k, ef).unwrap().into_iter().map(|r| r.id).collect();
+                let f: HashSet<String> =
+                    flat.search(q, top_k).unwrap().into_iter().map(|r| r.id).collect();
+                total += h.intersection(&f).count() as f64 / top_k as f64;
+            }
+            total / n_queries as f64
+        };
+
+        let recall_low = recall(Some(16));
+        let recall_high = recall(Some(400));
+        let recall_default = recall(None);
+
+        eprintln!("per-query ef: 16 -> {recall_low:.3}, 400 -> {recall_high:.3}");
+        assert!(
+            recall_high > recall_low + 0.05,
+            "raising per-query ef_search should lift recall: {recall_low:.3} -> {recall_high:.3}"
+        );
+        assert!(
+            (recall_default - recall_low).abs() < 1e-9,
+            "search_ef(None) must reuse the configured ef_search (=16)"
         );
     }
 

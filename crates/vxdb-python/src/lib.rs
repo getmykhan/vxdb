@@ -180,25 +180,36 @@ impl Collection {
         Ok(())
     }
 
-    #[pyo3(signature = (vector, top_k = 10, filter = None))]
+    #[pyo3(signature = (vector, top_k = 10, filter = None, ef_search = None))]
     fn query(
         &self,
         py: Python<'_>,
         vector: Vec<f32>,
         top_k: usize,
         filter: Option<Bound<'_, PyDict>>,
+        ef_search: Option<usize>,
     ) -> PyResult<Vec<PyObject>> {
-        let results = if let Some(filter_dict) = filter {
-            let json_val = py_to_json(&filter_dict.into_any())?;
-            let f = Filter::parse(&json_val).map_err(vex_err)?;
-            self.db
-                .with_collection(&self.name, |c| c.query_with_filter(&vector, top_k, &f))
-                .map_err(vex_err)?
-        } else {
-            self.db
-                .with_collection(&self.name, |c| c.query(&vector, top_k))
-                .map_err(vex_err)?
+        // Parse the filter while we still hold the GIL (it reads a Python dict).
+        let parsed = match filter {
+            Some(filter_dict) => {
+                let json_val = py_to_json(&filter_dict.into_any())?;
+                Some(Filter::parse(&json_val).map_err(vex_err)?)
+            }
+            None => None,
         };
+
+        // Release the GIL for the search itself: it runs pure Rust over a shared
+        // read lock, so independent queries on other threads execute in parallel.
+        let results = py
+            .allow_threads(|| match &parsed {
+                Some(f) => self.db.with_collection(&self.name, |c| {
+                    c.query_with_filter_ef(&vector, top_k, f, ef_search)
+                }),
+                None => self
+                    .db
+                    .with_collection(&self.name, |c| c.query_ef(&vector, top_k, ef_search)),
+            })
+            .map_err(vex_err)?;
 
         results_to_py(py, results)
     }
@@ -212,9 +223,12 @@ impl Collection {
         top_k: usize,
         alpha: f32,
     ) -> PyResult<Vec<PyObject>> {
-        let results = self
-            .db
-            .with_collection(&self.name, |c| c.hybrid_query(&vector, query, top_k, alpha))
+        let query = query.to_string();
+        let results = py
+            .allow_threads(|| {
+                self.db
+                    .with_collection(&self.name, |c| c.hybrid_query(&vector, &query, top_k, alpha))
+            })
             .map_err(vex_err)?;
 
         results_to_py(py, results)
@@ -227,9 +241,12 @@ impl Collection {
         query: &str,
         top_k: usize,
     ) -> PyResult<Vec<PyObject>> {
-        let results = self
-            .db
-            .with_collection(&self.name, |c| c.keyword_search(query, top_k))
+        let query = query.to_string();
+        let results = py
+            .allow_threads(|| {
+                self.db
+                    .with_collection(&self.name, |c| c.keyword_search(&query, top_k))
+            })
             .map_err(vex_err)?;
 
         results_to_py(py, results)

@@ -90,7 +90,7 @@ A/B where a bounded-window agent fails without memory and succeeds with it.
 
 ### Stupid fast
 
-The entire hot path — distance computation, HNSW traversal, BM25 scoring, mmap I/O — is **pure Rust** with zero GIL contention. Your Python code calls directly into compiled native code via PyO3. No serialization overhead. No REST round-trips. No subprocess.
+The entire hot path — distance computation, HNSW traversal, BM25 scoring, mmap I/O — is **pure Rust**. Search releases the GIL, so concurrent queries run in parallel across cores instead of serializing. Your Python code calls directly into compiled native code via PyO3. No serialization overhead. No REST round-trips. No subprocess.
 
 ### Stupid light
 
@@ -148,6 +148,10 @@ collection.upsert(
 ```python
 # 1. Vector similarity
 results = collection.query(vector=[0.1, 0.2, ...], top_k=5)
+
+# Trade recall for latency on HNSW: raise ef_search for more accurate results,
+# lower it for faster ones. Defaults to the index setting when omitted.
+results = collection.query(vector=[0.1, ...], top_k=5, ef_search=200)
 
 # 2. Filtered (metadata constraints)
 results = collection.query(
@@ -337,7 +341,7 @@ db.delete_collection(name)
 
 # Collection
 collection.upsert(ids, vectors, metadata=None, documents=None)
-collection.query(vector, top_k=10, filter=None)
+collection.query(vector, top_k=10, filter=None, ef_search=None)
 collection.hybrid_query(vector, query, top_k=10, alpha=0.5)
 collection.keyword_search(query, top_k=10)
 collection.delete(ids)
@@ -368,6 +372,7 @@ collection.count()
 | `index`   | `"flat"` (exact), `"hnsw"` (approximate)                        | `"flat"`   |
 | `filter`  | `$eq` `$ne` `$gt` `$gte` `$lt` `$lte` `$in` `$nin` `$and` `$or` | —          |
 | `alpha`   | `0.0` (keyword) to `1.0` (vector)                               | `0.5`      |
+| `ef_search` | HNSW candidates explored per query — higher lifts recall, costs latency | `150` (index default) |
 
 ## Examples
 

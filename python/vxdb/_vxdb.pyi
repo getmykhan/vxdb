@@ -21,6 +21,7 @@ class Collection:
         vector: list[float],
         top_k: int = ...,
         filter: dict[str, Any] | None = ...,
+        ef_search: int | None = ...,
     ) -> list[SearchResult]: ...
     def hybrid_query(
         self,

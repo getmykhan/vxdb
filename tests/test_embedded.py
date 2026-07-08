@@ -395,3 +395,80 @@ def test_version_resolution_is_lazy():
         "assert 'importlib.metadata' in sys.modules, 'access should trigger the lookup'\n"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+def test_query_ef_search_override_lifts_recall():
+    # A per-query ef_search lets the caller trade latency for recall without
+    # rebuilding the index. Higher ef must recover more of the exact top-k.
+    import numpy as np
+
+    rng = np.random.default_rng(7)
+    n, dim, nq, k = 4000, 64, 60, 10
+    data = rng.standard_normal((n, dim)).astype(np.float32)
+    queries = rng.standard_normal((nq, dim)).astype(np.float32)
+    ids = [str(i) for i in range(n)]
+
+    db = vxdb.Database()
+    hnsw = db.create_collection("h", dimension=dim, metric="cosine", index="hnsw")
+    flat = db.create_collection("f", dimension=dim, metric="cosine", index="flat")
+    hnsw.upsert(ids, data)
+    flat.upsert(ids, data)
+
+    def recall(ef):
+        hits = 0
+        for i in range(nq):
+            truth = {r["id"] for r in flat.query(queries[i].tolist(), top_k=k)}
+            got = {r["id"] for r in hnsw.query(queries[i].tolist(), top_k=k, ef_search=ef)}
+            hits += len(truth & got)
+        return hits / (nq * k)
+
+    recall_low = recall(4)
+    recall_high = recall(400)
+    assert recall_high > recall_low + 0.05, (
+        f"raising ef_search should lift recall: {recall_low:.3f} -> {recall_high:.3f}"
+    )
+
+
+def test_concurrent_queries_scale_across_threads():
+    # Releasing the GIL during search lets independent queries run on separate
+    # cores. Splitting the same work across 4 threads must finish meaningfully
+    # faster than running it serially. Before the GIL is released, threads
+    # serialize and this speedup does not appear.
+    import os
+    import threading
+    import time
+
+    import numpy as np
+
+    if (os.cpu_count() or 1) < 4:
+        pytest.skip("needs >= 4 cores to observe query parallelism")
+
+    rng = np.random.default_rng(3)
+    n, dim = 20000, 128
+    data = rng.standard_normal((n, dim)).astype(np.float32)
+    db = vxdb.Database()
+    col = db.create_collection("c", dimension=dim, metric="cosine", index="hnsw")
+    col.upsert([str(i) for i in range(n)], data)
+    queries = [data[i % 1000].tolist() for i in range(2400)]
+
+    def run(batch):
+        for v in batch:
+            col.query(v, top_k=10, ef_search=200)
+
+    # Warm up, then time serial.
+    run(queries[:100])
+    t0 = time.perf_counter()
+    run(queries)
+    serial = time.perf_counter() - t0
+
+    # Same total work, split across 4 threads.
+    parts = [queries[i::4] for i in range(4)]
+    threads = [threading.Thread(target=run, args=(p,)) for p in parts]
+    t0 = time.perf_counter()
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    threaded = time.perf_counter() - t0
+
+    assert threaded < serial / 1.6, f"expected query parallelism; serial={serial:.3f}s threaded={threaded:.3f}s"
