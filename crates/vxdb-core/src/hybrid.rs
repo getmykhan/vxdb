@@ -10,8 +10,8 @@ const B: f64 = 0.75;
 pub struct Bm25Index {
     /// doc_id -> tokenized terms
     docs: HashMap<String, Vec<String>>,
-    /// term -> set of doc_ids containing that term
-    inverted: HashMap<String, Vec<String>>,
+    /// term -> (doc_id -> term frequency in that doc)
+    inverted: HashMap<String, HashMap<String, usize>>,
     /// total number of documents
     doc_count: usize,
     /// average document length
@@ -37,10 +37,12 @@ impl Bm25Index {
         }
 
         for token in &tokens {
-            self.inverted
+            *self
+                .inverted
                 .entry(token.clone())
                 .or_default()
-                .push(id.to_string());
+                .entry(id.to_string())
+                .or_insert(0) += 1;
         }
 
         self.docs.insert(id.to_string(), tokens);
@@ -52,7 +54,7 @@ impl Bm25Index {
         if let Some(tokens) = self.docs.remove(id) {
             for token in &tokens {
                 if let Some(posting) = self.inverted.get_mut(token) {
-                    posting.retain(|d| d != id);
+                    posting.remove(id);
                     if posting.is_empty() {
                         self.inverted.remove(token);
                     }
@@ -92,10 +94,9 @@ impl Bm25Index {
             // IDF: log((N - df + 0.5) / (df + 0.5) + 1)
             let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
 
-            for doc_id in posting {
-                let doc_tokens = &self.docs[doc_id.as_str()];
-                let doc_len = doc_tokens.len() as f64;
-                let tf = doc_tokens.iter().filter(|t| *t == token).count() as f64;
+            for (doc_id, &tf) in posting {
+                let doc_len = self.docs[doc_id.as_str()].len() as f64;
+                let tf = tf as f64;
 
                 // BM25 term score
                 let tf_norm = (tf * (K1 + 1.0)) / (tf + K1 * (1.0 - B + B * doc_len / self.avg_doc_len));
@@ -196,6 +197,52 @@ mod tests {
         assert!(results.len() >= 2);
         // "none" should not appear or be ranked last
         assert!(results.iter().all(|r| r.0 != "none"));
+    }
+
+    #[test]
+    fn test_bm25_df_counts_documents_not_occurrences() {
+        // "common" occurs 5x in 2 of 3 docs. df must be 2 (documents), not 10
+        // (occurrences) — an inflated df flips the IDF negative and penalizes
+        // exactly the docs that match the query.
+        let mut idx = Bm25Index::new();
+        idx.insert("doc1", "rare word appears here today");
+        idx.insert("doc2", "rare common common common common common filler");
+        idx.insert("doc3", "common common common common common other filler");
+
+        let results = idx.search("rare common", 10);
+        assert_eq!(
+            results[0].0, "doc2",
+            "doc matching both query terms must rank first, got {results:?}"
+        );
+        assert!(
+            results.iter().all(|(_, s)| *s >= 0.0),
+            "BM25 scores must be non-negative, got {results:?}"
+        );
+    }
+
+    #[test]
+    fn test_bm25_term_repetition_saturates() {
+        // A doc matching all three query terms once must beat a doc that
+        // repeats a single query term eight times (K1 saturation).
+        let mut idx = Bm25Index::new();
+        idx.insert(
+            "needle",
+            "the quick brown fox jumps over lazy dogs in autumn weather today",
+        );
+        idx.insert(
+            "spam",
+            "fox fox fox fox fox fox fox fox with some other filler words here",
+        );
+
+        let results = idx.search("quick brown fox", 10);
+        assert_eq!(
+            results[0].0, "needle",
+            "doc matching all query terms must outrank single-term repetition, got {results:?}"
+        );
+        assert!(
+            results.iter().all(|(_, s)| *s >= 0.0),
+            "BM25 scores must be non-negative, got {results:?}"
+        );
     }
 
     #[test]
