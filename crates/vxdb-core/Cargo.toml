@@ -7,7 +7,6 @@ description = "Core engine for vxdb — a lightweight, high-performance vector s
 
 [features]
 default = []
-simd = []
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
