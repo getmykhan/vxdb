@@ -15,7 +15,7 @@
 
 <p align="center"><strong>The vector database that fits in your pocket. Fast enough to be memory in the loop.</strong></p>
 
-<p align="center">Rust-powered. Python-native. One <code>pip install</code> away.</p>
+<p align="center">In-process. Rust-powered. Python-native. One <code>pip install</code> away.</p>
 
 ```python
 pip install vxdb
@@ -419,7 +419,7 @@ vxdb/
 ## Roadmap
 
 - ~~Persistent collections (mmap + SQLite + WAL)~~ **Done**
-- SIMD-accelerated distance computation
+- ~~SIMD-accelerated distance computation~~ **Done** (v0.5.1: NEON on arm64, AVX2 on x86_64)
 - Quantization (int8/binary) for reduced memory
 - GPU acceleration (CUDA/Metal)
 - HNSW graph serialization (fast restart for large indexes)

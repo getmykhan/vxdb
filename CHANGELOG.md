@@ -5,6 +5,17 @@ All notable changes to vxdb will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-07-12
+
+### Changed
+
+- **SIMD distance kernels.** Cosine, euclidean, and dot distance now use NEON
+  on aarch64 (baseline, always available) and AVX2+FMA on x86_64 (detected at
+  runtime), with the previous scalar loops kept as the fallback. No API or
+  storage change; results are identical. Measured in Docker on 768-d data:
+  flat search 2.3-2.5x QPS (10k: 399 -> 933; 100k: 40 -> 89), HNSW search
+  ~1.2-1.4x, HNSW build ~1.4x faster.
+
 ## [0.5.0] - 2026-07-08
 
 ### Added
