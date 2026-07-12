@@ -94,7 +94,7 @@ The entire hot path — distance computation, HNSW traversal, BM25 scoring, mmap
 
 ### Stupid light
 
-A single native wheel **under 5 MB** with **zero Python dependencies**. Starts in **under 10 ms**. No numpy. No scipy. No protobuf. No grpcio version conflicts. Just `pip install vxdb` and you're done.
+A single native wheel **under 2 MB** with **zero Python dependencies**. Starts in **under 10 ms**. No numpy. No scipy. No protobuf. No grpcio version conflicts. Just `pip install vxdb` and you're done.
 
 ### Runs anywhere
 
@@ -104,13 +104,11 @@ Laptop. CI pipeline. Raspberry Pi. AWS Lambda. Docker container. Air-gapped serv
 
 Vector similarity + BM25 keyword matching fused via **Reciprocal Rank Fusion**. One API call. Tunable `alpha` parameter. No separate search engine needed. No Elasticsearch sidecar.
 
-Other databases like Qdrant, Milvus, and Zvec support hybrid search too — but they require you to run a separate sparse encoder (BM25 or SPLADE) yourself and pass pre-computed sparse vectors. vxdb computes BM25 internally from the documents you already upserted. One call: `hybrid_query(vector=..., query="text", alpha=0.5)`. No extra step.
+vxdb computes BM25 internally from the documents you already upserted. You run no separate sparse encoder and pass no pre-computed sparse vectors. One call does it: `hybrid_query(vector=..., query="text", alpha=0.5)`.
 
 ### Dual-mode: embedded + server
 
-Many databases now offer an "embedded" mode — but the implementations vary widely. Qdrant's local mode is a Python reimplementation (not their Rust engine). Weaviate embedded downloads a Go binary and runs it as a subprocess. Milvus Lite works but is limited to Linux/macOS and recommended for <1M vectors.
-
-vxdb's embedded mode is the **real Rust engine** compiled directly into a Python extension via PyO3. No serialization. No subprocess. No network. And the same engine powers the standalone REST server — start in a notebook, scale to multi-client HTTP when you're ready. No rewrite.
+vxdb's embedded mode is the **real Rust engine** compiled directly into a Python extension via PyO3. No serialization. No subprocess. No network. The same engine powers the standalone REST server, so you start in a notebook and scale to multi-client HTTP when you're ready. No rewrite.
 
 ## The full picture
 
@@ -284,7 +282,7 @@ docker run -p 8080:8080 vxdb    # ~145 MB Debian-based image
 
 ## Hybrid Search
 
-Most vector databases give you vector search OR keyword search. vxdb gives you both, fused intelligently in a single call.
+vxdb gives you vector search and keyword search fused in a single call.
 
 **How it works:**
 
@@ -311,11 +309,11 @@ results = collection.hybrid_query(
 | **Embedded mode**                | **PyO3, true in-process**   | In-process                  | In-process              | Python-only local mode    | No            | Milvus Lite             | Subprocess (downloads Go binary) | SWIG bindings |
 | **Server mode**                  | **Yes**                     | No                          | Yes                     | Yes                       | Cloud only    | Yes                     | Yes                         | No            |
 | **`pip install` just works**     | **Yes**                     | Yes                         | Yes                     | Yes (local mode)          | N/A (SaaS)    | Yes (Milvus Lite)       | Yes (Linux/macOS)           | Yes           |
-| **Python dependencies**          | **None (zero)**             | DashText SDK                | Several                 | numpy, grpcio, etc.       | N/A           | grpcio, protobuf, etc.  | grpcio, etc.                | numpy         |
-| **Wheel size**                   | **~5 MB**                   | ~30 MB                      | ~20 MB                  | ~50 MB                    | N/A           | ~50 MB+                 | ~100 MB+ (downloads binary) | ~20 MB        |
+| **Python dependencies**          | **None (zero)**             | None (zero-dep)             | Several                 | numpy, grpcio, etc.       | N/A           | grpcio, protobuf, etc.  | grpcio, etc.                | numpy         |
+| **Wheel size**                   | **~1.5 MB**                 | ~17 MB                      | ~20 MB                  | ~50 MB                    | N/A           | ~50 MB+                 | ~100 MB+ (downloads binary) | ~20 MB        |
 | **Startup time**                 | **<10 ms**                  | <100 ms                     | <500 ms                 | ~1-3 s (server)           | N/A           | ~5-10 s (server)        | ~3-5 s (server)             | <10 ms        |
 | **Hybrid search**                | **Built-in BM25 + RRF**    | BM25 + RRF + weighted       | RRF (dense+sparse)      | RRF, DBSF                 | Sparse+dense  | Sparse vectors          | BM25 + RRF                  | No            |
-| **BM25 without external encoder** | **Yes (automatic)**        | Requires DashText SDK       | Yes                     | Requires sparse encoder   | No            | Requires sparse encoder | Yes                         | No            |
+| **BM25 without external encoder** | **Yes (automatic)**        | Yes (native FTS)            | Yes                     | Requires sparse encoder   | No            | Requires sparse encoder | Yes                         | No            |
 | **Sparse vectors**               | No                          | Yes                         | Yes                     | Yes                       | Yes           | Yes                     | No                          | No            |
 | **Multi-vector queries**         | No                          | Yes                         | No                      | Yes                       | No            | No                      | No                          | No            |
 | **Metadata filtering**           | **10 operators**            | Structured filters          | Yes                     | Yes                       | Yes           | Yes                     | Yes                         | No            |
