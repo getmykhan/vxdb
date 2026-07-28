@@ -1,4 +1,4 @@
-"""vxdb — A lightweight, high-performance vector store."""
+"""vxdb: a lightweight, high-performance vector database."""
 
 from vxdb.client import Client
 from vxdb.embedded import Collection, Database
@@ -14,7 +14,7 @@ def __getattr__(name: str) -> str:
     to ``import vxdb`` (it imports the metadata/email machinery and scans
     ``site-packages`` ``.dist-info``). Deferring it keeps import startup at a
     few milliseconds while still single-sourcing the version from package
-    metadata — so it can never drift from pyproject/Cargo. The result is cached
+    metadata, so it can never drift from pyproject/Cargo. The result is cached
     into module globals, so repeated ``vxdb.__version__`` access is free.
     """
     if name == "__version__":

@@ -1,9 +1,9 @@
 """Ephemeral, in-process semantic working memory for agents.
 
-The defining idea: this is a vector store you *allocate* like a data structure, not
-one you *connect to* like a database. Because it lives in-process and creates/destroys
-instantly, an agent can consult it on **every step** of its loop — something that is
-prohibitively slow and costly against a networked store.
+The defining idea: this is a vector database you *allocate* like a data structure, not
+one you *connect to* like a service. Because it lives in-process and creates/destroys
+instantly, an agent can consult it on **every step** of its loop. Doing that against a
+networked service would be too slow and too expensive.
 
     from vxdb.agent import scratch
 
@@ -15,9 +15,9 @@ prohibitively slow and costly against a networked store.
 
 ``WorkingMemory`` is also a context manager. It is built entirely on the embedded
 ``vxdb.Database`` (zero Rust changes); the only net-new behavior over the raw API is
-auto-embedding, namespacing, and — importantly — **normalizing the engine's distance
-into an intuitive similarity** (the raw ``query`` returns ``score`` as a *distance*,
-where smaller is closer; here ``similarity`` is higher-is-better).
+auto-embedding, namespacing, and **normalizing the engine's distance into a
+similarity** (the raw ``query`` returns ``score`` as a *distance*, where smaller is
+closer; here ``similarity`` is higher-is-better).
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ class Recall(dict):
 
 
 class WorkingMemory:
-    """An ephemeral, in-process semantic store scoped to a single agent run.
+    """An ephemeral, in-process semantic scratchpad scoped to a single agent run.
 
     Allocate it, add to it, recall/match against it, drop it. No disk, no network.
     """

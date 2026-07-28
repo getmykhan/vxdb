@@ -13,43 +13,66 @@
   <a href="https://github.com/getmykhan/vxdb/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License"></a>
 </p>
 
-<p align="center"><strong>The vector database that fits in your pocket. Fast enough to be memory in the loop.</strong></p>
+<p align="center"><strong>Memory in the loop: an in-process vector database fast enough for your agent to consult on every step.</strong></p>
 
-<p align="center">In-process. Rust-powered. Python-native. One <code>pip install</code> away.</p>
+<p align="center">One Rust engine, two modes. Ephemeral agent working memory, or a persistent vector database. One <code>pip install</code> away.</p>
 
-```python
+```bash
 pip install vxdb
 ```
 
-## Use it as a database
+## Two modes
+
+| [Ephemeral: agent working memory](#memory-in-the-loop)                                                 | [Persistent: vector database](#the-vector-database-persistent)                                    |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Working memory your agent reads and writes on every step. Create it at the start of a run, drop it at the end. | Persistent collections: mmap + SQLite + WAL, four ways to search, optional HTTP server. |
+| `scratch(embed)`, then `recall` in about 100 microseconds.                                | `Database(path=...)` and the data survives restarts.                                  |
+| [Jump to working memory](#memory-in-the-loop)                                             | [Jump to the database](#the-vector-database-persistent)                                  |
 
 ```python
-import vxdb
+# Ephemeral mode: working memory for an agent run
+from vxdb.agent import scratch
 
-db = vxdb.Database(path="./my_data")  # persistent — data survives restarts
-collection = db.create_collection("docs", dimension=384)
-
-embed = your_embedding_function  # OpenAI, Sentence Transformers, Cohere, etc.
-
-collection.upsert(
-    ids=["a", "b"],
-    vectors=[embed("how to train a model"), embed("best pasta recipe")],
-    documents=["how to train a model", "best pasta recipe"],
-)
-
-collection.query(vector=embed("machine learning"), top_k=5)
+wm = scratch(embed)
+wm.add("user prefers concise answers")
+wm.recall("how should I answer?", k=3)
 ```
 
-`embed()` is any function that turns text into vectors — see [examples/](examples/) for OpenAI, Sentence Transformers, LangChain, and Cohere.
+```python
+# Persistent mode: a vector database on disk
+import vxdb
 
-That's it. No Docker. No config files. No cloud account. No 500 MB of dependencies.
+db = vxdb.Database(path="./my_data")
+docs = db.create_collection("docs", dimension=384)
+docs.upsert(ids=["a"], vectors=[embed("hello")], documents=["hello"])
+```
 
-## Use it as agent working memory
+`embed()` is any function that turns text into vectors: OpenAI, Sentence Transformers, Cohere, or your own. See [Embedding Providers](#embedding-providers).
 
-vxdb answers in about 100 microseconds in-process, three orders of magnitude below a
-networked store, so an agent can read and write it on every step of its loop.
-`scratch()` allocates a semantic scratchpad, and two tools hand it to the model. The
-model decides what earns storage; the scratchpad itself rejects near-duplicates:
+## Memory in the loop
+
+A query returns in about 100 microseconds in-process, three orders of magnitude below a networked database. At that latency your agent can check memory before every action and write memory after every observation. `scratch()` creates a semantic scratchpad in memory with no setup; it lasts for the run and `close()` drops it.
+
+### Create a scratchpad
+
+```python
+from vxdb.agent import scratch
+
+wm = scratch(embed)   # in-memory, scoped to this run
+wm.add("checkout depends on tax-service", metadata={"hop": 1})
+
+hits = wm.recall("what does checkout use for tax", k=3)
+hits[0].text        # "checkout depends on tax-service"
+hits[0].similarity  # higher is better
+
+wm.close()          # drop it
+```
+
+`WorkingMemory` is also a context manager: `with scratch(embed) as wm:` closes on exit. Hits carry `.text`, `.similarity`, `.metadata`, and `.id`, with `similarity` normalized so higher is better (the raw `query` API returns distance). `len(wm)` counts stored items, and `add_many(texts)` batches writes through a single embedding call.
+
+### Tool integration
+
+Register `remember` and `recall` as tools; the model decides what to store. The `seen` check rejects near-duplicates:
 
 ```python
 from agents import Agent, function_tool  # OpenAI Agents SDK; any tool-calling framework works
@@ -81,58 +104,47 @@ agent = Agent(
 )
 ```
 
-Every `remember` call is the model's own retention decision, and each one costs
-microseconds of store time, so consulting memory on every step is effectively free.
-The [notebook](examples/agent_working_memory.ipynb) runs this live, plus a with/without
-A/B where a bounded-window agent fails without memory and succeeds with it.
+Each `remember` call costs microseconds of store time on top of the embedding call.
 
-## Why developers choose vxdb
+### Loop guards
 
-### Stupid fast
+Use `match` and `seen` to check whether a planned action is a near-duplicate of a stored one:
 
-The entire hot path — distance computation, HNSW traversal, BM25 scoring, mmap I/O — is **pure Rust**. Search releases the GIL, so concurrent queries run in parallel across cores instead of serializing. Your Python code calls directly into compiled native code via PyO3. No serialization overhead. No REST round-trips. No subprocess.
+```python
+plan = "re-run the failing test with verbose logging"
 
-### Stupid light
+if wm.seen(plan, threshold=0.9):
+    pick_another_action()
 
-A single native wheel **under 2 MB** with **zero Python dependencies**. Starts in **under 10 ms**. No numpy. No scipy. No protobuf. No grpcio version conflicts. Just `pip install vxdb` and you're done.
+hit = wm.match(plan, threshold=0.85)  # the near-duplicate memory, or None
+if hit:
+    print(f"tried before: {hit.text} ({hit.similarity:.2f})")
+```
 
-### Runs anywhere
+`match` returns the closest stored item when its similarity clears the threshold; `seen` is the boolean version. `match` and `recall` also take a `where=` metadata filter using the same operators as collection queries.
 
-Laptop. CI pipeline. Raspberry Pi. AWS Lambda. Docker container. Air-gapped server. Anywhere Python runs, vxdb runs. No infrastructure required to get started — scale up to a standalone server when you need it.
+### Timing
 
-### Hybrid search built-in
+`timing_summary()` reports per-operation latency for the current run and breaks out embedder time from store time:
 
-Vector similarity + BM25 keyword matching fused via **Reciprocal Rank Fusion**. One API call. Tunable `alpha` parameter. No separate search engine needed. No Elasticsearch sidecar.
+```python
+wm.timing_summary()
+# {"embed_us": {...}, "write_us": {...}, "query_us": {...}}
+# each with count / p50_us / p99_us / mean_us / max_us
+```
 
-vxdb computes BM25 internally from the documents you already upserted. You run no separate sparse encoder and pass no pre-computed sparse vectors. One call does it: `hybrid_query(vector=..., query="text", alpha=0.5)`.
+The [agent working memory notebook](examples/agent_working_memory.ipynb) runs the full loop and a with/without A/B where a bounded-window agent fails without memory and succeeds with it.
 
-### Dual-mode: embedded + server
+## The vector database (persistent)
 
-vxdb's embedded mode is the **real Rust engine** compiled directly into a Python extension via PyO3. No serialization. No subprocess. No network. The same engine powers the standalone REST server, so you start in a notebook and scale to multi-client HTTP when you're ready. No rewrite.
-
-## The full picture
-
-![vxdb architecture](docs/vxdb-architecture.png)
-
-## Quick Start
-
-### 3 lines to your first search
+Pass a `path` and the same engine persists everything to disk:
 
 ```python
 import vxdb
 
-# Persistent (data survives restarts)
-db = vxdb.Database(path="./my_data")
-
-# Or in-memory (ephemeral, great for prototyping)
-# db = vxdb.Database()
-
+db = vxdb.Database(path="./my_data")  # data survives restarts
 collection = db.create_collection("docs", dimension=384, metric="cosine")
-```
 
-### Insert vectors
-
-```python
 collection.upsert(
     ids=["a", "b", "c"],
     vectors=[[0.1, 0.2, ...], [0.3, 0.4, ...], [0.5, 0.6, ...]],
@@ -141,7 +153,9 @@ collection.upsert(
 )
 ```
 
-### Search — four ways
+No Docker. No config files. No cloud account. Drop the `path` argument for an in-memory database.
+
+### Search
 
 ```python
 # 1. Vector similarity
@@ -157,7 +171,7 @@ results = collection.query(
     filter={"type": {"$eq": "article"}}
 )
 
-# 3. Hybrid (vector + keyword — the sweet spot)
+# 3. Hybrid (vector + keyword, the sweet spot)
 results = collection.hybrid_query(
     vector=[0.1, ...],
     query="machine learning",
@@ -171,34 +185,13 @@ results = collection.keyword_search(query="machine learning", top_k=5)
 
 Every result returns `{"id", "score", "metadata", "document"}`.
 
-## Installation
+### The persistence stack
 
-```bash
-pip install vxdb
-```
+`path=` turns on three layers: vectors in a memory-mapped file, metadata and documents in SQLite, and a write-ahead log that replays on open for crash recovery. The entire hot path (distance computation, HNSW traversal, BM25 scoring, mmap I/O) is pure Rust, called from Python via PyO3 with no serialization and no subprocess. Search releases the GIL, so concurrent queries run in parallel across cores.
 
-That's the whole thing. Works on **macOS, Linux, Windows**. Python 3.11+.
+### Attaching an embedder
 
-For the HTTP client (talking to a remote vxdb server):
-
-```bash
-pip install 'vxdb[server]'
-```
-
-## Embedding Providers
-
-vxdb stores **pre-computed vectors** — bring any embedding model you want. We have step-by-step notebooks for each:
-
-| Provider                     | Install                             | API Key?   | Notebook                                                                       |
-| ---------------------------- | ----------------------------------- | ---------- | ------------------------------------------------------------------------------ |
-| **OpenAI**                   | `pip install openai`                | Yes        | [examples/openai_embeddings.ipynb](examples/openai_embeddings.ipynb)         |
-| **Sentence Transformers**    | `pip install sentence-transformers` | No (local) | [examples/sentence_transformers.ipynb](examples/sentence_transformers.ipynb) |
-| **LangChain** (any provider) | `pip install langchain-openai`      | Depends    | [examples/langchain_integration.ipynb](examples/langchain_integration.ipynb) |
-| **Cohere**                   | `pip install cohere`                | Yes        | [examples/cohere_embeddings.ipynb](examples/cohere_embeddings.ipynb)         |
-| **Ollama** (local LLMs)      | `pip install ollama`                | No (local) | —                                                                              |
-
-Or let vxdb embed for you. Attach an `embedding_function` to a collection and
-work in **text** — pass `documents` to `upsert` and `query_text` to `query`:
+Attach an `embedding_function` to a collection and pass `documents` to `upsert` and `query_text` to `query`:
 
 ```python
 from vxdb import Database, EmbeddingFunction
@@ -214,16 +207,13 @@ docs.upsert(ids=["a", "b"], documents=["how to train a model", "best pasta recip
 docs.query(query_text="machine learning", top_k=5)
 ```
 
-The `embedding_function` can be an `EmbeddingFunction` subclass or any callable
-`list[str] -> list[list[float]]`. Passing `vectors`/`vector` explicitly always
-works and bypasses embedding — vxdb never requires or imports your model library.
+The `embedding_function` can be an `EmbeddingFunction` subclass or any callable `list[str] -> list[list[float]]`. Passing `vectors`/`vector` still works and bypasses embedding; vxdb does not require or import your model library.
 
-## Server Mode
+### HTTP server
 
-Same engine, accessed over HTTP. Deploy it as a standalone service.
+The server exposes the same engine over HTTP to multiple clients.
 
-The server ships as a **separate, optional package** — `pip install vxdb-server`
-adds the `vxdb-server` binary without touching the lean core `vxdb` wheel:
+The server ships as a **separate, optional package**: `pip install vxdb-server` adds the `vxdb-server` binary without touching the core `vxdb` wheel.
 
 ```bash
 # Install the standalone server (separate package, no extra deps)
@@ -233,15 +223,14 @@ pip install vxdb-server
 vxdb-server --host 0.0.0.0 --port 8080
 ```
 
-The Python `Client` lives in the core package — install it with the `server`
-extra (which pulls in `httpx`):
+The Python `Client` lives in the core package. Install it with the `server` extra (which pulls in `httpx`):
 
 ```bash
 pip install 'vxdb[server]'
 ```
 
-> **Note:** server mode is currently **in-memory only** — data does not persist
-> across restarts. For persistence, use embedded mode (`vxdb.Database(path=...)`).
+> **Note:** the server is **in-memory only** for now. Data does not persist
+> across restarts. For persistence, run vxdb in-process (`vxdb.Database(path=...)`).
 
 **Python client:**
 
@@ -280,17 +269,51 @@ docker build -t vxdb .
 docker run -p 8080:8080 vxdb    # ~145 MB Debian-based image
 ```
 
+## Architecture
+
+![vxdb architecture](docs/vxdb-architecture.png)
+
+## Installation
+
+```bash
+pip install vxdb
+```
+
+One native wheel **under 2 MB** with **zero Python dependencies**: no numpy, no scipy, no protobuf, no grpcio version conflicts. Starts in **under 10 ms**. Works on **macOS, Linux, Windows**, Python 3.11+.
+
+No infrastructure, no network calls at query time. vxdb runs on a laptop, a CI runner, a Raspberry Pi, an AWS Lambda, or an air-gapped server.
+
+For the HTTP client (talking to a remote vxdb server):
+
+```bash
+pip install 'vxdb[server]'
+```
+
+## Embedding Providers
+
+vxdb stores **pre-computed vectors**: bring any embedding model. Pass the same function to `scratch(embed)` or call it yourself before `upsert`. Step-by-step notebooks for each provider:
+
+| Provider                     | Install                             | API Key?   | Notebook                                                                     |
+| ---------------------------- | ----------------------------------- | ---------- | ---------------------------------------------------------------------------- |
+| **OpenAI**                   | `pip install openai`                | Yes        | [examples/openai_embeddings.ipynb](examples/openai_embeddings.ipynb)         |
+| **Sentence Transformers**    | `pip install sentence-transformers` | No (local) | [examples/sentence_transformers.ipynb](examples/sentence_transformers.ipynb) |
+| **LangChain** (any provider) | `pip install langchain-openai`      | Depends    | [examples/langchain_integration.ipynb](examples/langchain_integration.ipynb) |
+| **Cohere**                   | `pip install cohere`                | Yes        | [examples/cohere_embeddings.ipynb](examples/cohere_embeddings.ipynb)         |
+| **Ollama** (local LLMs)      | `pip install ollama`                | No (local) | n/a                                                                          |
+
+To skip the manual embedding step, [attach an embedder to a collection](#attaching-an-embedder).
+
 ## Hybrid Search
 
-vxdb gives you vector search and keyword search fused in a single call.
+`hybrid_query` fuses vector search and keyword search in a single call. vxdb computes BM25 from the documents you already upserted: you run no separate sparse encoder and pass no pre-computed sparse vectors.
 
 **How it works:**
 
-1. **You upsert with documents** — raw text is tokenized into a built-in BM25 index alongside your vectors
-2. **At query time** — vector search and BM25 run in parallel, then Reciprocal Rank Fusion merges both ranked lists
-3. **You control the blend** — `alpha=1.0` (pure vector) → `alpha=0.5` (balanced) → `alpha=0.0` (pure keyword)
+1. **You upsert with documents.** vxdb tokenizes the raw text into a built-in BM25 index alongside your vectors.
+2. **At query time,** vector search and BM25 run in parallel, then Reciprocal Rank Fusion merges both ranked lists.
+3. **You control the blend:** `alpha=1.0` (pure vector) → `alpha=0.5` (balanced) → `alpha=0.0` (pure keyword).
 
-**When to use it:** Specific product names. Error codes. Proper nouns. Anything where exact terms matter alongside semantic meaning. See [examples/hybrid_search.ipynb](examples/hybrid_search.ipynb) for a deep dive with side-by-side comparisons.
+**When to use it:** Specific product names, error codes, proper nouns: anything where exact terms matter alongside semantic meaning. See [examples/hybrid_search.ipynb](examples/hybrid_search.ipynb) for side-by-side comparisons.
 
 ```python
 results = collection.hybrid_query(
@@ -326,6 +349,25 @@ results = collection.hybrid_query(
 
 ## API Reference
 
+### Agent working memory
+
+```python
+from vxdb.agent import scratch
+
+wm = scratch(embed)  # embed: EmbeddingFunction or callable list[str] -> list[list[float]]
+
+wm.add(text, metadata=None, *, id=None)           # embed + store one item; returns its id
+wm.add_many(texts, metadatas=None, *, ids=None)   # batch add; one embedding call
+wm.recall(query, k=5, *, where=None)              # top-k hits, best first
+wm.match(text, threshold=0.85, *, where=None)     # closest hit above threshold, or None
+wm.seen(text, threshold=0.85)                     # True if match() finds one
+wm.timing_summary()                               # live latency: embed vs store, p50/p99
+len(wm)                                           # items currently stored
+wm.close()                                        # drop the scratchpad (idempotent)
+```
+
+`WorkingMemory` is a context manager: `with scratch(embed) as wm:` closes on exit. Recall hits expose `.text`, `.similarity` (higher is better), `.metadata`, and `.id`, and are plain dicts underneath, so they serialize to JSON as-is. `where=` takes the same filter operators as `collection.query`.
+
 ### Python (Embedded)
 
 ```python
@@ -346,7 +388,7 @@ collection.delete(ids)
 collection.count()
 ```
 
-`vectors` accepts a `list[list[float]]` or a 2-D `float32` NumPy array — NumPy arrays are read zero-copy via the buffer protocol, and NumPy is never imported or required.
+`vectors` accepts a `list[list[float]]` or a 2-D `float32` NumPy array. vxdb reads NumPy arrays zero-copy via the buffer protocol and does not import or require NumPy.
 
 ### REST API
 
@@ -368,22 +410,23 @@ collection.count()
 | --------- | --------------------------------------------------------------- | ---------- |
 | `metric`  | `"cosine"`, `"euclidean"`, `"dot"`                              | `"cosine"` |
 | `index`   | `"flat"` (exact), `"hnsw"` (approximate)                        | `"flat"`   |
-| `filter`  | `$eq` `$ne` `$gt` `$gte` `$lt` `$lte` `$in` `$nin` `$and` `$or` | —          |
+| `filter`  | `$eq` `$ne` `$gt` `$gte` `$lt` `$lte` `$in` `$nin` `$and` `$or` | none       |
 | `alpha`   | `0.0` (keyword) to `1.0` (vector)                               | `0.5`      |
-| `ef_search` | HNSW candidates explored per query — higher lifts recall, costs latency | `150` (index default) |
+| `ef_search` | HNSW candidates explored per query; higher lifts recall, costs latency | `150` (index default) |
 
 ## Examples
 
 Interactive Jupyter notebooks with step-by-step walkthroughs:
 
-| Notebook                                                              | What you'll build                      |
-| --------------------------------------------------------------------- | -------------------------------------- |
-| [quickstart.ipynb](examples/quickstart.ipynb)                       | Every feature in 5 min (no API keys)   |
-| [openai_embeddings.ipynb](examples/openai_embeddings.ipynb)         | Semantic search with OpenAI embeddings |
-| [sentence_transformers.ipynb](examples/sentence_transformers.ipynb) | Free, local embeddings (no API key)    |
-| [langchain_integration.ipynb](examples/langchain_integration.ipynb) | LangChain + RAG pipeline               |
-| [cohere_embeddings.ipynb](examples/cohere_embeddings.ipynb)         | Multilingual search with Cohere        |
-| [hybrid_search.ipynb](examples/hybrid_search.ipynb)                 | Deep dive: vector vs keyword vs hybrid |
+| Notebook                                                            | What you'll build                          |
+| ------------------------------------------------------------------- | ------------------------------------------ |
+| [agent_working_memory.ipynb](examples/agent_working_memory.ipynb)   | An agent with memory in the loop, plus a with/without A/B |
+| [quickstart.ipynb](examples/quickstart.ipynb)                       | Every feature in 5 min (no API keys)       |
+| [openai_embeddings.ipynb](examples/openai_embeddings.ipynb)         | Semantic search with OpenAI embeddings     |
+| [sentence_transformers.ipynb](examples/sentence_transformers.ipynb) | Free, local embeddings (no API key)        |
+| [langchain_integration.ipynb](examples/langchain_integration.ipynb) | LangChain + RAG pipeline                   |
+| [cohere_embeddings.ipynb](examples/cohere_embeddings.ipynb)         | Multilingual search with Cohere            |
+| [hybrid_search.ipynb](examples/hybrid_search.ipynb)                 | Deep dive: vector vs keyword vs hybrid     |
 
 ## Development
 
@@ -409,7 +452,7 @@ vxdb/
 │   ├── vxdb-core/       # Engine: indexes, distance, storage, hybrid search
 │   ├── vxdb-python/     # PyO3 bindings
 │   └── vxdb-server/     # Axum REST API server
-├── python/vxdb/         # Python package (client SDK, embedding interface)
+├── python/vxdb/         # Python package (agent memory, client SDK, embedding interface)
 ├── examples/             # Jupyter notebooks
 └── tests/                # Python integration tests
 ```

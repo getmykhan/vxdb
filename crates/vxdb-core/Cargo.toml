@@ -3,7 +3,7 @@ name = "vxdb-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Core engine for vxdb — a lightweight, high-performance vector store"
+description = "Core engine for vxdb, a lightweight, high-performance vector database"
 
 [features]
 default = []
